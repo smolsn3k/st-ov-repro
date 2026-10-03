@@ -1,0 +1,23 @@
+#ovr_root .ovr-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; flex-wrap: wrap; }
+#ovr_root .ovr-row > span { flex: 1 1 45%; min-width: 120px; }
+#ovr_root .ovr-row .text_pole { flex: 1 1 40%; width: auto; margin: 0; }
+#ovr_root .ovr-small { max-width: 90px; flex: 0 0 90px !important; }
+#ovr_root h4, #ovr_root h5 { margin: 8px 0 4px; }
+#ovr_root .ovr-card { border: 1px solid var(--SmartThemeBorderColor); border-radius: 8px; padding: 8px; margin: 6px 0; display: flex; flex-direction: column; gap: 3px; }
+#ovr_root .ovr-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+#ovr_root .ovr-btn { padding: 3px 9px; font-size: 0.9em; }
+#ovr_root .ovr-pre { white-space: pre-wrap; font-size: 0.8em; max-height: 260px; overflow: auto; padding: 6px; border-radius: 6px; background: var(--black30a); }
+#ovr_root .ovr-chip { display: inline-block; padding: 1px 7px; margin: 2px 3px 0 0; border-radius: 10px; font-size: 0.8em; background: var(--black30a); border: 1px solid var(--SmartThemeBorderColor); }
+#ovr_root .ovr-sec { margin: 6px 0; }
+#ovr_root .ovr-sec > summary { cursor: pointer; }
+#ovr_root .ovr-sec > summary h4 { display: inline; }
+#ovr_root .ovr-chip { display: inline-block; font-size: 0.8em; padding: 1px 7px; margin: 2px 3px 2px 0; border-radius: 10px; border: 1px solid var(--SmartThemeBorderColor); }
+#ovr_root .ovr-tree, #ovr_root .ovr-tree ul { list-style: none; padding-left: 16px; margin: 3px 0; border-left: 1px solid var(--SmartThemeBorderColor); }
+.ovr-infoblock { margin-top: 8px; padding: 6px 10px; border: 1px solid var(--SmartThemeBorderColor); border-radius: 8px; background: var(--black30a); font-size: 0.85em; }
+.ovr-infoblock summary { cursor: pointer; font-weight: 600; }
+.ovr-infoblock .ovr-ib-row { margin: 3px 0; }
+.ovr-modal { position: fixed; inset: 0; z-index: 99999; background: rgba(0, 0, 0, 0.55); display: flex; align-items: center; justify-content: center; }
+.ovr-modal-box { background: var(--SmartThemeBlurTintColor, #222); color: var(--SmartThemeBodyColor, #eee); border: 1px solid var(--SmartThemeBorderColor); border-radius: 10px; padding: 14px; width: min(440px, 92vw); max-height: 85vh; overflow: auto; }
+.ovr-modal .ovr-row { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
+.ovr-modal .ovr-row .text_pole { flex: 1 1 50%; margin: 0; width: auto; }
+.ovr-modal .ovr-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
