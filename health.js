@@ -166,7 +166,7 @@ export function takeTest(k) {
 // ── Appearance inheritance ──
 export function inheritedLooks(k) {
     const c = C(), e = ent(k), o = other(k), sec = e.second || {};
-    const a = c.looks[k] || {}, b = { eyes: sec.eyes || c.looks[o]?.eyes, hair: sec.hair || c.looks[o]?.hair };
+    const a = D.parseLook(c.looks[k]?.text), b = D.parseLook(sec.look || (sec.name?.trim() ? '' : c.looks[o]?.text));
     return { eyes: D.inheritTrait(a.eyes, b.eyes, D.EYE_RANK), hair: D.inheritTrait(a.hair, b.hair, D.HAIR_RANK) };
 }
 export const secondParentName = k => ent(k).second?.name?.trim() || nameOf(other(k));

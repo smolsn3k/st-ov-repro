@@ -85,7 +85,7 @@ function buildMessages(idx) {
         ' "trying": {"user": true|false|null, "char": true|false|null},  // true if the story says they have begun actively trying for a baby, false if they stopped',
         ' "disruption": {"user": "stress|illness|starvation|travel|overwork|null", "char": "..."},  // a clear event that would disturb the heat/rut cycle',
         ' "nest": {"user": "none|building|ready|disturbed|null", "char": "..."},  // state of this character\'s nest, if the story shows it',
-        ' "looks": {"user": {"eyes": "color or null", "hair": "color or null"}, "char": {"eyes": "...", "hair": "..."}}}',
+        ' "looks": {"user": "short appearance line like \'brown eyes, black hair\' if the newest message states it, else null", "char": "..."}}',
         ...babyBlock,
         'Use false when unsure. Plans, hypotheticals, memories and fantasies are false.',
         '', '--- EXCERPT ---', recent.join('\n\n'),
@@ -192,7 +192,27 @@ function applyBabyUpdates(list, events) {
 }
 
 function applyLooks(k, l) {
-    if (!l || typeof l !== 'object' || !S().inheritAppearance) return;
+    if (!l || !S().inheritAppearance) return;
     const cur = C().looks[k];
-    for (const f of ['eyes', 'hair']) if (typeof l[f] === 'string' && l[f].trim() && !cur[f]) cur[f] = l[f].trim().toLowerCase().slice(0, 30);
+    if (typeof l === 'string' && l.trim() && !cur.text) cur.text = l.trim().slice(0, 120);
+}
+
+// On-demand: read the character card, persona and recent chat and describe each parent's looks in one line.
+export async function analyzeAppearance() {
+    const x = ctx(), c = C(), chat = x.chat || [];
+    const ch = x.characters?.[x.characterId];
+    const card = [ch?.description, ch?.personality].filter(Boolean).join('\n').slice(0, 3000);
+    const persona = String(x.powerUserSettings?.persona_description || '').slice(0, 2000);
+    const recent = chat.filter(m => !m.is_system).slice(-12).map(m => `${m.is_user ? nameOf('user') : (m.name || nameOf('char'))}: ${clean(m.mes).slice(0, 700)}`).join('\n\n');
+    const second = ['user', 'char'].map(k => c.entities[k].second.name).find(Boolean);
+    const system = 'You are a precise extractor for a fictional roleplay between adult characters. Only use what the text states. Reply with a single JSON object and nothing else.';
+    const user = [
+        `Describe the physical appearance of each person in ONE short comma-separated line (eye color, hair color, then at most two other notable traits).`,
+        `Return: {"user": "line or null", "char": "line or null"${second ? `, "second": "line for ${second} or null"` : ''}}`,
+        `"user" = ${nameOf('user')}, "char" = ${nameOf('char')}${second ? `, "second" = ${second}` : ''}. Use null when the text does not say.`,
+        '', `--- ${nameOf('char')} CARD ---`, card || '(none)', '', `--- ${nameOf('user')} PERSONA ---`, persona || '(none)', '', '--- RECENT CHAT ---', recent || '(none)',
+    ].join('\n');
+    const r = parse(await call(system, user));
+    if (!r) throw new Error('No usable answer from the model');
+    return r;
 }

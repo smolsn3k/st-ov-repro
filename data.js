@@ -135,3 +135,13 @@ export function inheritTrait(a, b, ranks, rnd = Math.random) {
     const dom = ranks[na] >= ranks[nb] ? na : nb, rec = dom === na ? nb : na;
     return rnd() < 0.7 ? dom : rec;
 }
+
+// Pull eye and hair color out of one free-text appearance line, e.g. "tall, brown eyes, black hair".
+export function parseLook(text) {
+    const out = { eyes: null, hair: null };
+    for (const seg of String(text || '').split(/[,;.\n]|\band\b/i)) {
+        if (/\beyes?\b/i.test(seg) && !out.eyes) out.eyes = normTrait(seg.replace(/\beyes?\b/gi, ''), EYE_RANK);
+        if (/\bhair\b/i.test(seg) && !out.hair) out.hair = normTrait(seg.replace(/\bhair\b/gi, ''), HAIR_RANK);
+    }
+    return out;
+}

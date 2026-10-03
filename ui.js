@@ -3,7 +3,7 @@ import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, trackedKeys, nameOf, hooks
 import * as E from './engine.js';
 import * as H from './health.js';
 import * as D from './data.js';
-import { profiles } from './analyze.js';
+import { profiles, analyzeAppearance } from './analyze.js';
 import { pretty, parseISO } from './dates.js';
 import { labelOf, ageWords, stageOf, careNeeds, careNorms, nowHours, MILESTONES, archiveBabies } from './baby.js';
 import { buildPrompt, updatePrompt } from './prompt.js';
@@ -16,6 +16,23 @@ let showPreview = false;
 const SLEEP_OPTS = ['', 'asleep', 'awake', 'drowsy', 'napping'], FEED_OPTS = ['', 'breast', 'formula', 'mixed', 'solids'], HEALTH_OPTS = ['normal', 'fever', 'cold', 'sick', 'injured', 'recovering'];
 const sel = (list, cur, attrs) => `<select class="text_pole" ${attrs}>${list.map(v => `<option value="${v}" ${v === cur ? 'selected' : ''}>${v || '(auto)'}</option>`).join('')}</select>`;
 const sexWord = x => (x === 'M' ? 'boy' : 'girl');
+
+// ── Open/closed state of collapsible sections survives re-renders ──
+const OPEN_KEY = 'ovr_open_sections';
+let openSecs;
+try { openSecs = new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || 'null') || ['chat', 'status', 'children']); } catch { openSecs = new Set(['chat', 'status', 'children']); }
+const saveOpen = () => { try { localStorage.setItem(OPEN_KEY, JSON.stringify([...openSecs])); } catch { /* ignore */ } };
+const sec = (id, title, body, cls = '') => `<details class="ovr-sec ${cls}" data-sec="${id}" ${openSecs.has(id) ? 'open' : ''}><summary>${title}</summary><div class="ovr-sec-body">${body}</div></details>`;
+function scrollParent(el) {
+    for (let p = el?.parentElement; p; p = p.parentElement) {
+        const oy = getComputedStyle(p).overflowY;
+        if ((oy === 'auto' || oy === 'scroll') && p.scrollHeight > p.clientHeight) return p;
+    }
+    return null;
+}
+const bar = (cur, max, cls = '') => `<div class="ovr-bar"><div class="ovr-bar-fill ${cls}" style="width:${Math.max(0, Math.min(100, max ? (cur / max) * 100 : 0))}%"></div></div>`;
+const BADGE = { heat: 'hot', rut: 'hot', pre: 'warm', quiet: 'calm', suppressed: 'calm', pregnant: 'preg', egg_gravid: 'egg', egg_laying: 'egg', egg_incubating: 'egg', egg_hatching: 'egg', postpartum: 'post', lactating: 'post' };
+
 
 // ── Modal dialogs ──
 function modal(title, body, buttons) {
@@ -70,50 +87,58 @@ function babyCard(b) {
         <div class="menu_button ovr-btn" data-act="delbaby" data-b="${b.id}">Remove</div></div></div>`;
 }
 
-const numField = (key, label, min, max, step = 1) => `<label class="ovr-row"><span>${label}</span><input type="number" class="text_pole" data-g="${key}" min="${min}" max="${max}" step="${step}" value="${S()[key]}"></label>`;
-const chk = (key, label) => `<label class="checkbox_label"><input type="checkbox" data-g="${key}" ${S()[key] ? 'checked' : ''}><span>${label}</span></label>`;
+const numField = (key, label, min, max, step = 1) => `<label class="ovr-field"><span>${label}</span><input type="number" class="text_pole" data-g="${key}" min="${min}" max="${max}" step="${step}" value="${S()[key]}"></label>`;
+const chk = (key, label) => `<label class="ovr-switch"><input type="checkbox" data-g="${key}" ${S()[key] ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">${label}</span></label>`;
+const grid = (...f) => `<div class="ovr-grid">${f.join('')}</div>`;
 const ep = (k, path, type, val, extra = '') => `<input type="${type}" class="text_pole" data-ent="${k}" data-path="${path}" ${type === 'checkbox' ? (val ? 'checked' : '') : `value="${esc(val)}"`} ${extra}>`;
 
 function complicationRows(k) {
     const e = C().entities[k], h = e.health, rows = [];
-    h.complications.forEach((c, i) => {
-        if (!c.active && !c.resolved) return;
-        const d = D.COMPLICATIONS.find(x => x.id === c.id);
-        rows.push(`<div class="ovr-row"><small>${esc(d.label)} <b>[${d.severity}]</b> ${c.resolved ? 'resolved' : c.diagnosed ? 'diagnosed' : 'not yet understood in story'}</small>${c.resolved ? '' : `<div class="menu_button ovr-btn" data-act="resolvec" data-k="${k}" data-kind="p" data-i="${i}">Resolve</div>`}</div>`);
-    });
-    h.eggPlanned.forEach((c, i) => {
-        if (!c.active && !c.resolved) return;
-        const d = D.EGG_COMPLICATIONS.find(x => x.id === c.id);
-        rows.push(`<div class="ovr-row"><small>${esc(d.label)} <b>[${d.severity}]</b> ${c.resolved ? 'resolved' : c.diagnosed ? 'diagnosed' : 'not yet understood in story'}</small>${c.resolved ? '' : `<div class="menu_button ovr-btn" data-act="resolvec" data-k="${k}" data-kind="e" data-i="${i}">Resolve</div>`}</div>`);
-    });
-    return rows.join('');
+    h.complications.forEach((c, i) => { if (c.active && !c.resolved) rows.push(`<div class="menu_button ovr-btn" data-act="resolvec" data-k="${k}" data-kind="p" data-i="${i}">Resolve: ${esc(D.COMPLICATIONS.find(x => x.id === c.id).label)}</div>`); });
+    h.eggPlanned.forEach((c, i) => { if (c.active && !c.resolved) rows.push(`<div class="menu_button ovr-btn" data-act="resolvec" data-k="${k}" data-kind="e" data-i="${i}">Resolve: ${esc(D.EGG_COMPLICATIONS.find(x => x.id === c.id).label)}</div>`); });
+    return rows.length ? `<div class="ovr-btns">${rows.join('')}</div>` : '';
 }
 
 function card(k) {
     const c = C(), e = c.entities[k], ph = E.phase(k), phys = PHYS[c.physiology[k]], s = S(), h = e.health, prac = H.practitioner(), ep_ = H.era();
     const live = c.repro[k] !== 'oviposition', carrying = E.isCarrying(e);
-    const L = [`<div><b>${esc(nameOf(k))}</b> <small>${phys.label}, ${live ? 'live birth' : 'oviposition'}</small></div>`, `<div>${esc(ph.label)}</div>`];
-    if (ph.fertility > 0) L.push(`<small>Conception odds per qualifying event: ${Math.round(E.conceptionOdds(k) * 100)}%</small>`);
-    if (!carrying && !e.postpartumDays) { const sy = H.phaseSymptoms(k, ph.id, 3); if (sy.length) L.push(`<small>Sensations: ${esc(sy.join('; '))}</small>`); }
+    // progress toward the next milestone of the current phase
+    let prog = null;
+    if (e.pregnant) prog = [E.weeksOf(e), s.termWeeks, `week ${E.weeksOf(e)} of ${s.termWeeks}`];
+    else if (e.egg.stage === 'gravid') prog = [e.egg.carryDays, s.eggCarryDays, `day ${e.egg.carryDays} of ${s.eggCarryDays}`];
+    else if (e.egg.stage === 'incubating') prog = [e.egg.incubDays, s.eggIncubationDays, `day ${e.egg.incubDays} of ${s.eggIncubationDays}`];
+    else if (e.postpartumDays > 0 && e.postpartumDays <= H.postpartumLength(k)) prog = [e.postpartumDays, H.postpartumLength(k), `day ${e.postpartumDays} of ${H.postpartumLength(k)}`];
+    else if (!carrying && !e.postpartumDays) prog = [e.cycleDay, s.cycleLength, `cycle day ${e.cycleDay} of ${s.cycleLength}`];
+
+    const head = `<div class="ovr-card-head"><div><b>${esc(nameOf(k))}</b> <span class="ovr-pill">${phys.label}</span> <span class="ovr-pill soft">${live ? 'live birth' : 'oviposition'}</span></div><span class="ovr-badge ${BADGE[ph.id] || 'calm'}">${esc(ph.label)}</span></div>`;
+    const top = [];
+    if (prog) top.push(`${bar(prog[0], prog[1], BADGE[ph.id] || '')}<small class="ovr-dim">${prog[2]}</small>`);
+    if (ph.fertility > 0) top.push(`<small>Conception odds per qualifying event: <b>${Math.round(E.conceptionOdds(k) * 100)}%</b></small>`);
+    if (!carrying && !e.postpartumDays) { const sy = H.phaseSymptoms(k, ph.id, 3); if (sy.length) top.push(`<small class="ovr-dim">${esc(sy.join(' · '))}</small>`); }
+    if (e.postpartumDays > 0) { const st = H.postpartumStage(k); if (st) top.push(`<small class="ovr-dim">${esc(st.label)}: ${esc(st.sym.slice(0, 3).join(' · '))}</small>`); }
+    if (carrying) top.push(`<small>Known in story: <b>${e.known ? 'yes' : 'no (hidden)'}</b></small>`);
+
+    const chips = [];
+    h.complications.forEach(cc => { if (cc.active || cc.resolved) { const d = D.COMPLICATIONS.find(x => x.id === cc.id); chips.push(`<span class="ovr-chip sev-${cc.resolved ? 'ok' : d.severity}">${esc(d.label)}${cc.resolved ? ' ✓' : ''}</span>`); } });
+    h.eggPlanned.forEach(cc => { if (cc.active || cc.resolved) { const d = D.EGG_COMPLICATIONS.find(x => x.id === cc.id); chips.push(`<span class="ovr-chip sev-${cc.resolved ? 'ok' : d.severity}">${esc(d.label)}${cc.resolved ? ' ✓' : ''}</span>`); } });
+    const healthBox = (chips.length ? `<div>${chips.join('')}</div>` : '') + complicationRows(k)
+        + (h.visit.date ? `<small class="ovr-dim">Last visit (${pretty(h.visit.date)}): ${esc(h.visit.note)}</small>` : '')
+        + (h.test.result ? `<small class="ovr-dim">Last test (${pretty(h.test.date)}): ${esc(h.test.result)}</small>` : '')
+        + (e.disruption ? `<small class="ovr-dim">Last disruption: ${esc(D.DISRUPTIONS[e.disruption.kind].label)} (${pretty(e.disruption.date)})</small>` : '');
+
+    let pregBox = '';
     if (e.pregnant) {
         const p = H.pregStatus(k);
-        L.push(`<small>Week ${p.week}, trimester ${E.trimester(p.week)}, due ${pretty(E.dueDate(e))}. Baby size: ${esc(p.size)}.</small>`);
-        L.push(`<small>Sensations: ${esc(p.symptoms.join('; '))}</small>`);
-        L.push(`<small>Movement: ${esc(p.movement)} · position: ${esc(p.position)} · practice contractions: ${esc(p.braxton)} · swelling: ${esc(p.swelling)} · libido: ${esc(p.libido)} · weight gain: ${esc(p.weight)}</small>`);
-        L.push(`<small>Advice: ${esc(p.advice)}</small>`);
-        L.push(`<small>Babies: <b>${e.fetusCount}</b> (${h.confirm.count ? 'confirmed' : 'not confirmed in story'}) · sex: <b>${esc(e.fetusSex.map(sexWord).join(', '))}</b> (${h.confirm.sex ? 'confirmed' : 'not confirmed'})</small>`);
-        if (h.fetal) { const d = D.FETAL_DISEASES.find(x => x.id === h.fetal.id); L.push(`<small>Fetal condition: ${esc(d.label)} (${h.fetal.known ? 'found at an exam' : 'not found yet'})</small>`); }
+        const fetal = h.fetal ? `<small>Fetal condition: ${esc(D.FETAL_DISEASES.find(x => x.id === h.fetal.id).label)} (${h.fetal.known ? 'found at an exam' : 'not found yet'})</small>` : '';
+        pregBox = sec(`card-${k}-preg`, 'Pregnancy details', `<div class="ovr-kv"><span>Due</span><b>${pretty(E.dueDate(e))}</b><span>Trimester</span><b>${E.trimester(p.week)}</b><span>Baby size</span><b>${esc(p.size)}</b><span>Movement</span><b>${esc(p.movement)}</b><span>Position</span><b>${esc(p.position)}</b><span>Practice contractions</span><b>${esc(p.braxton)}</b><span>Swelling</span><b>${esc(p.swelling)}</b><span>Libido</span><b>${esc(p.libido)}</b><span>Weight gain</span><b>${esc(p.weight)}</b></div>
+            <small>Sensations: ${esc(p.symptoms.join('; '))}</small><small>Advice: ${esc(p.advice)}</small>
+            <small>Babies: <b>${e.fetusCount}</b> (${h.confirm.count ? 'confirmed' : 'not confirmed in story'}) · sex: <b>${esc(e.fetusSex.map(sexWord).join(', '))}</b> (${h.confirm.sex ? 'confirmed' : 'not confirmed'})</small>${fetal}`, 'ovr-inner');
     }
+    let eggBox = '';
     if (e.egg.stage !== 'none') {
-        L.push(`<small>${e.egg.count} eggs, ${e.egg.laid} laid</small>`);
-        e.eggs.forEach((g, i) => { const bits = [g.shell && D.SHELL_DEFECTS.find(x => x.id === g.shell).label, g.embryo && D.EMBRYO_DISEASES.find(x => x.id === g.embryo).label].filter(Boolean); if (bits.length || g.fate === 'fail') L.push(`<small>Egg ${i + 1}: ${esc(bits.join(' + ') || 'ok')}${g.fate === 'fail' ? ' (will not hatch)' : ''} (${g.known ? 'found' : 'not found yet'})</small>`); });
+        const rows = e.eggs.map((g, i) => { const bits = [g.shell && D.SHELL_DEFECTS.find(x => x.id === g.shell).label, g.embryo && D.EMBRYO_DISEASES.find(x => x.id === g.embryo).label].filter(Boolean); return `<small>Egg ${i + 1}: ${esc(bits.join(' + ') || 'healthy')}${g.fate === 'fail' ? ' (will not hatch)' : ''} <span class="ovr-dim">(${g.known ? 'found' : 'not found yet'})</span></small>`; }).join('');
+        eggBox = sec(`card-${k}-egg`, 'Clutch details', `<small>${e.egg.count} eggs, ${e.egg.laid} laid · nest: ${esc(e.nest.state)}</small>${rows}`, 'ovr-inner');
     }
-    if (e.postpartumDays > 0) { const st = H.postpartumStage(k); if (st) L.push(`<small>${esc(st.label)}: ${esc(st.sym.slice(0, 3).join('; '))}</small>`); }
-    if (carrying) L.push(`<small>Known in story: <b>${e.known ? 'yes' : 'no (hidden)'}</b></small>`);
-    L.push(complicationRows(k));
-    if (h.visit.date) L.push(`<small>Last visit (${pretty(h.visit.date)}): ${esc(h.visit.note)}</small>`);
-    if (h.test.result) L.push(`<small>Last test (${pretty(h.test.date)}): ${esc(h.test.result)}</small>`);
-    if (e.disruption) L.push(`<small>Last disruption: ${esc(D.DISRUPTIONS[e.disruption.kind].label)} (${pretty(e.disruption.date)})</small>`);
 
     const btn = (act, label, extra = '') => `<div class="menu_button menu_button_icon ovr-btn" data-act="${act}" data-k="${k}" ${extra}>${label}</div>`;
     const b = [btn('adv', '+1 day', 'data-n="1"'), btn('adv', '+7 days', 'data-n="7"')];
@@ -125,34 +150,56 @@ function card(k) {
     if (carrying) { const cd = H.visitCooldownLeft(k); b.push(btn('visit', `Visit ${esc(prac)}${cd ? ` (${cd}d)` : ''}`)); b.push(btn('end', 'End')); }
     if (ep_.test) b.push(btn('test', `Take ${esc(ep_.test.name)}`));
 
-    const fields = [];
-    if (!carrying && !e.postpartumDays) fields.push(`<label class="ovr-row"><span>Cycle day</span><input type="number" class="text_pole ovr-small" data-ent="${k}" data-f="cycleDay" min="1" max="${s.cycleLength}" value="${e.cycleDay}"></label>`);
-    if (e.pregnant) fields.push(`<label class="ovr-row"><span>Weeks</span><input type="number" class="text_pole ovr-small" data-ent="${k}" data-f="weeks" min="0" max="60" value="${E.weeksOf(e)}"></label>`);
-    if (e.pregnant) fields.push(`<label class="ovr-row"><span>Delivery method</span><select class="text_pole" data-ent="${k}" data-path="deliveryMethod"><option value="natural" ${e.deliveryMethod === 'natural' ? 'selected' : ''}>Natural</option><option value="csection" ${e.deliveryMethod === 'csection' ? 'selected' : ''}>C-section</option></select></label>`);
+    const f = [];
+    if (!carrying && !e.postpartumDays) f.push(`<label class="ovr-field"><span>Cycle day</span><input type="number" class="text_pole" data-ent="${k}" data-f="cycleDay" min="1" max="${s.cycleLength}" value="${e.cycleDay}"></label>`);
+    if (e.pregnant) {
+        f.push(`<label class="ovr-field"><span>Weeks</span><input type="number" class="text_pole" data-ent="${k}" data-f="weeks" min="0" max="60" value="${E.weeksOf(e)}"></label>`);
+        f.push(`<label class="ovr-field"><span>Delivery method</span><select class="text_pole" data-ent="${k}" data-path="deliveryMethod"><option value="natural" ${e.deliveryMethod === 'natural' ? 'selected' : ''}>Natural</option><option value="csection" ${e.deliveryMethod === 'csection' ? 'selected' : ''}>C-section</option></select></label>`);
+    }
+    f.push(`<label class="ovr-field"><span>Other parent</span>${ep(k, 'second.name', 'text', e.second.name, `placeholder="${esc(H.secondParentName(k))}"`)}</label>`);
+    f.push(`<label class="ovr-field"><span>Other parent appearance</span>${ep(k, 'second.look', 'text', e.second.look, 'placeholder="e.g. blue eyes, blond hair"')}</label>`);
     if (carrying) {
         const n = e.pregnant ? e.fetusCount : e.egg.count;
-        for (let i = 0; i < n; i++) fields.push(`<label class="ovr-row"><span>${e.pregnant ? 'Baby' : 'Egg'} ${i + 1} name</span>${ep(k, `babyNames.${i}`, 'text', e.babyNames[i] || '', 'placeholder="unnamed (picked up from chat if discussed)"')}</label>`);
+        for (let i = 0; i < n; i++) f.push(`<label class="ovr-field"><span>${e.pregnant ? 'Baby' : 'Egg'} ${i + 1} name</span>${ep(k, `babyNames.${i}`, 'text', e.babyNames[i] || '', 'placeholder="unnamed (picked up from chat)"')}</label>`);
     }
-    fields.push(`<label class="ovr-row"><span>Other parent</span>${ep(k, 'second.name', 'text', e.second.name, `placeholder="${esc(H.secondParentName(k))}"`)}</label>`);
-    fields.push(`<div class="ovr-row"><span>Other parent eyes / hair</span>${ep(k, 'second.eyes', 'text', e.second.eyes, 'placeholder="eyes"')}${ep(k, 'second.hair', 'text', e.second.hair, 'placeholder="hair"')}</div>`);
-    if (s.tryingMode && E.canConceive(k)) fields.push(`<label class="checkbox_label"><input type="checkbox" data-ent="${k}" data-path="trying.on" ${e.trying.on ? 'checked' : ''}><span>Trying for a baby${e.trying.on ? ` (${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'})` : ''}</span></label>`);
-    if (e.postpartumDays > 0) fields.push(`<label class="checkbox_label"><input type="checkbox" data-ent="${k}" data-path="postpartum.lactating" ${e.postpartum.lactating ? 'checked' : ''}><span>Lactating</span></label>`);
-    if (!live || carrying && e.egg.stage !== 'none') fields.push(`<label class="ovr-row"><span>Nest</span><select class="text_pole" data-ent="${k}" data-path="nest.state">${Object.keys(D.NEST).map(n => `<option value="${n}" ${e.nest.state === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`);
-    if (s.disruptionsEnabled && !carrying) fields.push(`<div class="ovr-row"><span>Cycle disruption</span><select class="text_pole" id="ovr_dis_${k}">${Object.entries(D.DISRUPTIONS).map(([id, d]) => `<option value="${id}">${d.label}</option>`).join('')}</select>${btn('disrupt', 'Apply')}</div>`);
-    if (live && E.canConceive(k)) fields.push(`<div class="ovr-row"><span>Manual pregnancy start</span><input type="date" class="text_pole" id="ovr_mp_d_${k}" value="${c.date.current || ''}"><input type="number" class="text_pole ovr-small" id="ovr_mp_n_${k}" min="1" max="4" value="1" title="babies"><input type="text" class="text_pole" id="ovr_mp_p_${k}" placeholder="other parent">${btn('startpreg', 'Start')}</div>`);
-    return `<div class="ovr-card">${L.join('')}${fields.join('')}<div class="ovr-btns">${b.join('')}</div></div>`;
+    if (!live || e.egg.stage !== 'none') f.push(`<label class="ovr-field"><span>Nest</span><select class="text_pole" data-ent="${k}" data-path="nest.state">${Object.keys(D.NEST).map(n => `<option value="${n}" ${e.nest.state === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`);
+    const tog = [];
+    if (s.tryingMode && E.canConceive(k)) tog.push(`<label class="ovr-switch"><input type="checkbox" data-ent="${k}" data-path="trying.on" ${e.trying.on ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Trying for a baby${e.trying.on ? ` (${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'})` : ''}</span></label>`);
+    if (e.postpartumDays > 0) tog.push(`<label class="ovr-switch"><input type="checkbox" data-ent="${k}" data-path="postpartum.lactating" ${e.postpartum.lactating ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Lactating</span></label>`);
+    const extra = [];
+    if (s.disruptionsEnabled && !carrying) extra.push(`<div class="ovr-inline"><select class="text_pole" id="ovr_dis_${k}">${Object.entries(D.DISRUPTIONS).map(([id, d]) => `<option value="${id}">${d.label}</option>`).join('')}</select>${btn('disrupt', 'Apply disruption')}</div>`);
+    if (live && E.canConceive(k)) extra.push(`<div class="ovr-inline"><input type="date" class="text_pole" id="ovr_mp_d_${k}" value="${c.date.current || ''}" title="conception date"><input type="number" class="text_pole ovr-small" id="ovr_mp_n_${k}" min="1" max="4" value="1" title="babies"><input type="text" class="text_pole" id="ovr_mp_p_${k}" placeholder="other parent">${btn('startpreg', 'Start pregnancy')}</div>`);
+    const opts_ = sec(`card-${k}-opts`, 'Details and options', `${grid(...f)}${tog.length ? `<div class="ovr-switches">${tog.join('')}</div>` : ''}${extra.join('')}`, 'ovr-inner');
+
+    return `<div class="ovr-card">${head}${top.join('')}${healthBox ? `<div class="ovr-health">${healthBox}</div>` : ''}${pregBox}${eggBox}${opts_}<div class="ovr-btns">${b.join('')}</div></div>`;
 }
 
+// Visual family tree: couples at the top, connector lines down to each child.
 function tree() {
     const fam = C().family;
-    const all = [...fam.babies, ...fam.grown.map(g => ({ ...g, grown: true, milestones: [] }))];
-    if (!all.length) return '<small>No children yet.</small>';
-    const groups = {};
-    for (const b of all) (groups[`${b.parent}|${b.otherParent || H.secondParentName(b.parent)}`] ||= []).push(b);
-    return `<ul class="ovr-tree">${Object.entries(groups).map(([key, list]) => {
-        const [p, o] = key.split('|');
-        return `<li><b>${esc(nameOf(p))}</b> + ${esc(o)}<ul>${list.map(b => `<li>${esc(b.name || `Baby${b.id}`)} <small>${sexWord(b.sex)}, ${ageWords(b.age)}${b.grown ? ', older child' : ''}${b.via === 'hatch' ? ', hatched' : ''}${b.method === 'csection' ? ', C-section' : ''}</small>${(b.milestones || []).slice(-3).map(m => `<span class="ovr-chip">${esc(m.text)}</span>`).join('')}${b.appearance?.length ? `<br><small>${esc(b.appearance.join(', '))}</small>` : ''}</li>`).join('')}</ul></li>`;
-    }).join('')}</ul>`;
+    const kids = [...fam.babies, ...fam.grown.map(g => ({ ...g, grown: true, milestones: [] }))];
+    if (!kids.length) return '<small>No children yet.</small>';
+    const groups = new Map();
+    for (const b of kids) {
+        const a = nameOf(b.parent), o = b.otherParent || H.secondParentName(b.parent), key = [a, o].sort().join('\u0000');
+        if (!groups.has(key)) groups.set(key, { couple: [a, o], kids: [] });
+        groups.get(key).kids.push(b);
+    }
+    const kid = b => `<div class="ovr-ft-kid"><div class="ovr-ft-node ${b.sex === 'M' ? 'boy' : 'girl'} ${b.grown ? 'old' : ''}" title="${esc((b.appearance || []).join(', '))}"><b>${esc(b.name || `Baby${b.id}`)}</b><small>${sexWord(b.sex)}, ${ageWords(b.age)}${b.via === 'hatch' ? ', hatched' : ''}${b.method === 'csection' ? ', C-section' : ''}${b.grown ? ', older' : ''}</small>${(b.milestones || []).length ? `<small class="ovr-dim">${b.milestones.slice(-1)[0].text}</small>` : ''}</div></div>`;
+    return `<div class="ovr-ft-wrap">${[...groups.values()].map(g => `<div class="ovr-ft"><div class="ovr-ft-couple"><span class="ovr-ft-node par">${esc(g.couple[0])}</span><span class="ovr-ft-heart">&hearts;</span><span class="ovr-ft-node par">${esc(g.couple[1])}</span></div><div class="ovr-ft-stem"></div><div class="ovr-ft-kids">${g.kids.map(kid).join('')}</div></div>`).join('')}</div>`;
+}
+
+function addChildForm() {
+    const c = C();
+    return `<div class="ovr-grid">
+        <label class="ovr-field"><span>Name</span><input type="text" class="text_pole" id="ovr_ac_name" placeholder="optional"></label>
+        <label class="ovr-field"><span>Sex</span><select class="text_pole" id="ovr_ac_sex"><option value="F">Girl</option><option value="M">Boy</option></select></label>
+        <label class="ovr-field"><span>Carried by</span><select class="text_pole" id="ovr_ac_parent"><option value="user">${esc(nameOf('user'))}</option><option value="char">${esc(nameOf('char'))}</option></select></label>
+        <label class="ovr-field"><span>Other parent</span><input type="text" class="text_pole" id="ovr_ac_other" placeholder="default: the other character"></label>
+        <label class="ovr-field"><span>Birth date</span><input type="date" class="text_pole" id="ovr_ac_born" value="${c.date.current || ''}"></label>
+        <label class="ovr-field"><span>Origin</span><select class="text_pole" id="ovr_ac_via"><option value="birth">Born</option><option value="hatch">Hatched</option></select></label>
+        <label class="ovr-field"><span>Delivery</span><select class="text_pole" id="ovr_ac_method"><option value="natural">Natural</option><option value="csection">C-section</option></select></label></div>
+        <div class="ovr-btns"><div class="menu_button ovr-btn" data-act="addchild">Add child</div></div>`;
 }
 
 export function render() {
@@ -164,94 +211,55 @@ export function render() {
         <select class="text_pole" data-c="physiology.${k}">${opts(PHYS, c.physiology[k])}</select>
         <select class="text_pole" data-c="repro.${k}"><option value="live" ${c.repro[k] === 'live' ? 'selected' : ''}>Live birth</option><option value="oviposition" ${c.repro[k] === 'oviposition' ? 'selected' : ''}>Oviposition</option></select></div>`;
     const conRow = k => `<label class="ovr-row"><span>${esc(nameOf(k))}</span><select class="text_pole" data-c="contraception.${k}">${opts(CONTRA, c.contraception[k])}</select></label>`;
-    const looksRow = k => `<div class="ovr-row"><span>${esc(nameOf(k))} eyes / hair</span><input type="text" class="text_pole" data-c="looks.${k}.eyes" value="${esc(c.looks[k].eyes)}" placeholder="eyes"><input type="text" class="text_pole" data-c="looks.${k}.hair" value="${esc(c.looks[k].hair)}" placeholder="hair"></div>`;
+    const looksRow = k => `<label class="ovr-row"><span>${esc(nameOf(k))}</span><input type="text" class="text_pole" data-c="looks.${k}.text" value="${esc(c.looks[k].text)}" placeholder="e.g. brown eyes, black hair, tall"></label>`;
+
+    const g = {
+        api: `<label class="ovr-field wide"><span>Track</span><select class="text_pole" data-g="track"><option value="user" ${s.track === 'user' ? 'selected' : ''}>User only</option><option value="char" ${s.track === 'char' ? 'selected' : ''}>Bot only</option><option value="both" ${s.track === 'both' ? 'selected' : ''}>Both</option></select></label>
+            <label class="ovr-field wide"><span>API profile</span><select class="text_pole" data-g="apiProfile">${profOpts}</select></label>
+            ${pf.length ? '' : '<small class="ovr-dim">No Connection Manager profiles found; the main API is used.</small>'}
+            <div class="ovr-switches">${chk('autoAnalyze', 'Analyze messages for events')}${chk('smartFilter', 'Only analyze when the text looks relevant')}</div>${grid(numField('analyzeDepth', 'Messages sent to analyzer', 1, 10))}`,
+        cycle: `${grid(numField('conceptionChance', 'Conception chance at peak, %', 0, 100), numField('cycleLength', 'Cycle length, days', 10, 120), numField('heatDuration', 'Heat/rut duration, days', 1, 14))}
+            <div class="ovr-switches">${chk('tryingMode', 'Trying-for-a-baby mode')}${chk('disruptionsEnabled', 'Cycle disruptions')}</div>`,
+        live: `${grid(numField('termWeeks', 'Pregnancy length, weeks', 8, 60), numField('twinsChance', 'Twins chance, %', 0, 100, 0.1), numField('tripletsChance', 'Triplets chance, %', 0, 100, 0.1), numField('doctorCooldown', 'Visit cooldown, days', 0, 60), numField('complicationChance', 'Complication multiplier, %', 0, 300), numField('fetalDiseaseChance', 'Fetal disease chance, %', 0, 100, 0.5))}
+            <div class="ovr-switches">${chk('complicationsEnabled', 'Pregnancy complications')}${chk('fetalDiseasesEnabled', 'Fetal diseases')}</div>`,
+        ovi: `${grid(numField('clutchMin', 'Clutch size, min', 1, 20), numField('clutchMax', 'Clutch size, max', 1, 20), numField('eggCarryDays', 'Egg carrying, days', 1, 120), numField('eggIncubationDays', 'Incubation, days', 1, 200), numField('embryoChance', 'Embryo disease chance, %', 0, 100, 0.5), numField('shellChance', 'Shell defect chance, %', 0, 100, 0.5))}
+            <div class="ovr-switches">${chk('eggComplicationsEnabled', 'Egg complications')}${chk('embryoDiseasesEnabled', 'Embryo diseases')}${chk('shellDefectsEnabled', 'Shell defects')}${chk('nestRisk', 'Unprepared nest can cost eggs')}</div>`,
+        post: `${grid(numField('recoveryDays', 'Recovery (natural), days', 1, 180), numField('lactationReturnDays', 'Lactation suppresses cycle, days', 30, 720), numField('babyMaxAgeDays', 'Offer "older" after, days', 30, 7300))}
+            <div class="ovr-switches">${chk('lactationDefault', 'Lactation after birth by default')}${chk('inheritAppearance', 'Appearance inheritance')}${chk('autoPickNames', 'Pick up baby names from chat')}${chk('birthDialog', 'Birth dialog')}${chk('graduationDialog', 'Graduation dialog')}</div>`,
+        disp: `<div class="ovr-switches">${chk('infoblock', 'Chat infoblock')}${chk('infoblockShowHidden', 'Infoblock shows hidden pregnancies')}</div>
+            <textarea class="text_pole" data-g="infoblockCss" rows="3" placeholder="Custom CSS for .ovr-infoblock">${esc(s.infoblockCss)}</textarea>
+            ${grid(numField('historyLimit', 'Undo checkpoints kept', 5, 100), numField('injectDepth', 'Injection depth', 0, 20), `<label class="ovr-field"><span>Numeric date order</span><select class="text_pole" data-g="dateOrder"><option value="DMY" ${s.dateOrder === 'DMY' ? 'selected' : ''}>DD/MM/YYYY</option><option value="MDY" ${s.dateOrder === 'MDY' ? 'selected' : ''}>MM/DD/YYYY</option></select></label>`)}`,
+    };
+
+    const sp = scrollParent(body[0]), top = sp ? sp.scrollTop : 0;
     body.html(`
-    <label class="checkbox_label"><input type="checkbox" data-g="enabled" ${s.enabled ? 'checked' : ''}><span>Enabled</span></label>
-    ${chk('notifications', 'Show notifications')}
-    <details class="ovr-sec"><summary><h4>Global settings</h4></summary>
-    <label class="ovr-row"><span>Track</span><select class="text_pole" data-g="track">
-        <option value="user" ${s.track === 'user' ? 'selected' : ''}>User only</option>
-        <option value="char" ${s.track === 'char' ? 'selected' : ''}>Bot only</option>
-        <option value="both" ${s.track === 'both' ? 'selected' : ''}>Both</option></select></label>
-    <label class="ovr-row"><span>API profile</span><select class="text_pole" data-g="apiProfile">${profOpts}</select></label>
-    ${pf.length ? '' : '<small>No Connection Manager profiles found; the main API is used.</small>'}
-    ${chk('autoAnalyze', 'Analyze messages for events (conception, birth, visits, names, date...)')}
-    ${chk('smartFilter', 'Only analyze when the text looks relevant (saves calls)')}
-    ${numField('analyzeDepth', 'Messages sent to analyzer', 1, 10)}
-    <h5>Cycle and conception</h5>
-    ${numField('conceptionChance', 'Conception chance at peak, %', 0, 100)}
-    ${numField('cycleLength', 'Heat/rut cycle length, days', 10, 120)}
-    ${numField('heatDuration', 'Heat/rut duration, days', 1, 14)}
-    ${chk('tryingMode', 'Trying-for-a-baby mode available')}
-    ${chk('disruptionsEnabled', 'Cycle disruptions (stress, illness, travel...)')}
-    <h5>Pregnancy</h5>
-    ${numField('termWeeks', 'Pregnancy length, weeks', 8, 60)}
-    ${numField('twinsChance', 'Twins chance, %', 0, 100, 0.1)}
-    ${numField('tripletsChance', 'Triplets chance, %', 0, 100, 0.1)}
-    ${chk('complicationsEnabled', 'Pregnancy complications')}
-    ${numField('complicationChance', 'Complication chance multiplier, %', 0, 300)}
-    ${chk('fetalDiseasesEnabled', 'Fetal diseases')}
-    ${numField('fetalDiseaseChance', 'Fetal disease chance, %', 0, 100, 0.5)}
-    ${numField('doctorCooldown', 'Practitioner visit cooldown, days', 0, 60)}
-    <h5>Oviposition</h5>
-    ${numField('clutchMin', 'Clutch size, min', 1, 20)}
-    ${numField('clutchMax', 'Clutch size, max', 1, 20)}
-    ${numField('eggCarryDays', 'Egg carrying, days', 1, 120)}
-    ${numField('eggIncubationDays', 'Incubation, days', 1, 200)}
-    ${chk('eggComplicationsEnabled', 'Egg complications')}
-    ${chk('embryoDiseasesEnabled', 'Embryo diseases')}
-    ${numField('embryoChance', 'Embryo disease chance per egg, %', 0, 100, 0.5)}
-    ${chk('shellDefectsEnabled', 'Shell defects')}
-    ${numField('shellChance', 'Shell defect chance per egg, %', 0, 100, 0.5)}
-    ${chk('nestRisk', 'Unprepared nest can cost eggs during incubation')}
-    <h5>Postpartum and children</h5>
-    ${numField('recoveryDays', 'Postpartum recovery (natural), days', 1, 180)}
-    ${chk('lactationDefault', 'Lactation starts after birth by default')}
-    ${numField('lactationReturnDays', 'Cycle stays suppressed while lactating, days', 30, 720)}
-    ${chk('inheritAppearance', 'Appearance inheritance')}
-    ${chk('autoPickNames', 'Pick up baby names from the chat')}
-    ${chk('birthDialog', 'Birth dialog (name babies)')}
-    ${chk('graduationDialog', 'Graduation dialog')}
-    ${numField('babyMaxAgeDays', 'Children are offered "older" after, days', 30, 7300)}
-    <h5>Display and history</h5>
-    ${chk('infoblock', 'Chat infoblock under the latest message')}
-    ${chk('infoblockShowHidden', 'Infoblock shows hidden pregnancies/clutches')}
-    <textarea class="text_pole" data-g="infoblockCss" rows="3" placeholder="Custom CSS for .ovr-infoblock">${esc(s.infoblockCss)}</textarea>
-    ${numField('historyLimit', 'Undo checkpoints kept', 5, 100)}
-    ${numField('injectDepth', 'Injection depth (messages from the end)', 0, 20)}
-    <label class="ovr-row"><span>Numeric date order</span><select class="text_pole" data-g="dateOrder"><option value="DMY" ${s.dateOrder === 'DMY' ? 'selected' : ''}>DD/MM/YYYY</option><option value="MDY" ${s.dateOrder === 'MDY' ? 'selected' : ''}>MM/DD/YYYY</option></select></label>
-    </details>
-    <details class="ovr-sec" open><summary><h4>This chat</h4></summary>
-    <div class="ovr-row"><span>Story date</span><b>${c.date.current ? pretty(c.date.current) : 'not detected yet'}</b><small>(${c.date.source})</small></div>
-    <div class="ovr-row"><span>Time of day</span><b>${c.date.time || 'unknown'}</b></div>
-    <div class="ovr-row"><input type="date" class="text_pole" id="ovr_date_in" value="${c.date.current || ''}">
-        <input type="time" class="text_pole" id="ovr_time_in" value="${c.date.time || ''}">
-        <div class="menu_button ovr-btn" data-act="date-adv">Set &amp; advance</div>
-        <div class="menu_button ovr-btn" data-act="date-only">Set only</div>
-        <div class="menu_button ovr-btn" data-act="date-detect">Re-detect</div></div>
-    <label class="checkbox_label"><input type="checkbox" id="ovr_date_lock" ${c.date.manual ? 'checked' : ''}><span>Lock date (ignore dates found in chat)</span></label>
-    <h5>Physiology and reproduction type</h5>${physRow('user')}${physRow('char')}
-    <h5>Contraception</h5>${conRow('user')}${conRow('char')}
-    <h5>Appearance (for inheritance)</h5>${looksRow('user')}${looksRow('char')}
-    <h5>Reveal Mode</h5>
-    <label class="ovr-row"><span>Era</span><select class="text_pole" data-c="reveal.era">${opts(ERAS, c.reveal.era)}</select></label>
-    <small>Medical help in this era: ${esc(H.practitioner())}</small>
-    ${c.reveal.era === 'custom' ? `<label class="ovr-row"><span>Practitioner</span><input type="text" class="text_pole" data-c="reveal.practitioner" value="${esc(c.reveal.practitioner)}" placeholder="healer, witch doctor, medic..."></label><textarea class="text_pole" data-c="reveal.custom" rows="2" placeholder="How can a pregnancy or clutch be discovered in this setting?">${esc(c.reveal.custom)}</textarea>` : ''}
-    </details>
-    <details class="ovr-sec" open><summary><h4>Status</h4></summary>${trackedKeys().map(card).join('')}</details>
-    <details class="ovr-sec" open><summary><h4>Children</h4></summary>
-    ${c.family.babies.map(babyCard).join('') || '<small>No children yet.</small>'}
-    ${c.family.grown.length ? `<small>Older children: ${c.family.grown.map(g => esc(g.name || 'unnamed') + ' (' + ageWords(g.age) + ')').join(', ')}</small>` : ''}
-    </details>
-    <details class="ovr-sec"><summary><h4>Family tree</h4></summary>${tree()}</details>
-    <details class="ovr-sec"><summary><h4>Undo history (${c.history.length})</h4></summary>
-    ${c.history.length ? c.history.map((h, i) => `<div class="ovr-row"><small>${esc(h.label)}${h.date ? ' · ' + esc(pretty(h.date)) : ''}</small><div class="menu_button ovr-btn" data-act="hist" data-i="${i}">Restore to before this</div></div>`).reverse().join('') : '<small>No checkpoints yet. One is saved before every automatic or manual change.</small>'}
-    </details>
+    <div class="ovr-switches top">${chk('enabled', 'Enabled')}${chk('notifications', 'Notifications')}</div>
+    ${sec('settings', 'Global settings', `
+        ${sec('g-api', 'Tracking and API', g.api, 'ovr-sub')}${sec('g-cycle', 'Cycle and conception', g.cycle, 'ovr-sub')}
+        ${sec('g-live', 'Pregnancy (live birth)', g.live, 'ovr-sub')}${sec('g-ovi', 'Oviposition', g.ovi, 'ovr-sub')}
+        ${sec('g-post', 'Postpartum and children', g.post, 'ovr-sub')}${sec('g-disp', 'Display and history', g.disp, 'ovr-sub')}`)}
+    ${sec('chat', 'This chat', `
+        <div class="ovr-kv"><span>Story date</span><b>${c.date.current ? pretty(c.date.current) : 'not detected yet'} <small class="ovr-dim">(${c.date.source})</small></b><span>Time of day</span><b>${c.date.time || 'unknown'}</b></div>
+        <div class="ovr-inline"><input type="date" class="text_pole" id="ovr_date_in" value="${c.date.current || ''}"><input type="time" class="text_pole" id="ovr_time_in" value="${c.date.time || ''}">
+            <div class="menu_button ovr-btn" data-act="date-adv">Set &amp; advance</div><div class="menu_button ovr-btn" data-act="date-only">Set only</div><div class="menu_button ovr-btn" data-act="date-detect">Re-detect</div></div>
+        <div class="ovr-switches">${`<label class="ovr-switch"><input type="checkbox" id="ovr_date_lock" ${c.date.manual ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Lock date (ignore dates found in chat)</span></label>`}</div>
+        ${sec('c-phys', 'Physiology and reproduction type', physRow('user') + physRow('char'), 'ovr-sub')}
+        ${sec('c-con', 'Contraception', conRow('user') + conRow('char'), 'ovr-sub')}
+        ${sec('c-look', 'Appearance for inheritance', `<small class="ovr-dim">One line per person. Eye and hair colors are read from it.</small>${looksRow('user')}${looksRow('char')}<div class="ovr-btns"><div class="menu_button ovr-btn" data-act="analyzelooks">Analyze parents' appearance with AI</div></div>`, 'ovr-sub')}
+        ${sec('c-reveal', 'Reveal Mode', `<label class="ovr-row"><span>Era</span><select class="text_pole" data-c="reveal.era">${opts(ERAS, c.reveal.era)}</select></label><small class="ovr-dim">Medical help in this era: ${esc(H.practitioner())}</small>
+            ${c.reveal.era === 'custom' ? `<label class="ovr-row"><span>Practitioner</span><input type="text" class="text_pole" data-c="reveal.practitioner" value="${esc(c.reveal.practitioner)}" placeholder="healer, witch doctor, medic..."></label><textarea class="text_pole" data-c="reveal.custom" rows="2" placeholder="How can a pregnancy or clutch be discovered in this setting?">${esc(c.reveal.custom)}</textarea>` : ''}`, 'ovr-sub')}`)}
+    ${sec('status', 'Status', trackedKeys().map(card).join(''))}
+    ${sec('children', 'Children', `${c.family.babies.map(babyCard).join('') || '<small>No children yet.</small>'}
+        ${c.family.grown.length ? `<small class="ovr-dim">Older children: ${c.family.grown.map(x => esc(x.name || 'unnamed') + ' (' + ageWords(x.age) + ')').join(', ')}</small>` : ''}
+        ${sec('add-child', 'Add a child manually', addChildForm(), 'ovr-sub')}`)}
+    ${sec('tree', 'Family tree', tree())}
+    ${sec('history', `Undo history (${c.history.length})`, c.history.length ? c.history.map((h, i) => `<div class="ovr-row"><small>${esc(h.label)}${h.date ? ' · ' + esc(pretty(h.date)) : ''}</small><div class="menu_button ovr-btn" data-act="hist" data-i="${i}">Restore to before this</div></div>`).reverse().join('') : '<small class="ovr-dim">No checkpoints yet. One is saved before every automatic or manual change.</small>')}
     <div class="ovr-btns">
         <div class="menu_button ovr-btn" data-act="undo">Undo last auto change</div>
         <div class="menu_button ovr-btn" data-act="preview">${showPreview ? 'Hide' : 'Show'} injected prompt</div>
         <div class="menu_button ovr-btn" data-act="reset">Reset this chat</div></div>
     ${showPreview ? `<pre class="ovr-pre">${esc(buildPrompt())}</pre>` : ''}`);
+    if (sp) sp.scrollTop = top;
 }
 
 export function refresh() { updatePrompt(); render(); renderInfoblock(); }
@@ -260,7 +268,7 @@ function setPath(obj, path, v) { const p = path.split('.'); const last = p.pop()
 const val = el => (el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value);
 const note = (t, type = 'info') => S().notifications && toastr[type](t, 'Omegaverse');
 
-const LABELS = { adv: 'Advance time', conceive: 'Conception', birth: 'Birth', lay: 'Laying eggs', hatch: 'Hatching', end: 'Ended', startpreg: 'Manual pregnancy start', disrupt: 'Disruption', visit: 'Visit', test: 'Test', reveal: 'Reveal', resolvec: 'Resolved complication', 'date-adv': 'Date change', 'date-only': 'Date change', fed: 'Fed', changed: 'Diaper changed', grow: 'Moved to older', delbaby: 'Removed child' };
+const LABELS = { addchild: 'Added child', analyzelooks: 'Appearance analysis', adv: 'Advance time', conceive: 'Conception', birth: 'Birth', lay: 'Laying eggs', hatch: 'Hatching', end: 'Ended', startpreg: 'Manual pregnancy start', disrupt: 'Disruption', visit: 'Visit', test: 'Test', reveal: 'Reveal', resolvec: 'Resolved complication', 'date-adv': 'Date change', 'date-only': 'Date change', fed: 'Fed', changed: 'Diaper changed', grow: 'Moved to older', delbaby: 'Removed child' };
 
 export function mount() {
     if ($('#ovr_root').length) return;
@@ -269,6 +277,12 @@ export function mount() {
     hooks.onBirth = openBirthDialog;
     hooks.onGrad = openGradDialog;
     applyCustomCss();
+    document.addEventListener('toggle', e => {
+        const d = e.target;
+        if (!(d instanceof HTMLDetailsElement) || !d.dataset.sec || !d.closest('#ovr_root')) return;
+        if (d.open) openSecs.add(d.dataset.sec); else openSecs.delete(d.dataset.sec);
+        saveOpen();
+    }, true);
 
     $(document).on('change', `${root} [data-g]`, e => { const el = e.currentTarget; S()[el.dataset.g] = val(el); saveS(); applyCustomCss(); refresh(); });
     $(document).on('change', `${root} [data-c]`, e => { const el = e.currentTarget; setPath(C(), el.dataset.c, val(el)); saveC(); refresh(); });
@@ -335,6 +349,22 @@ export function mount() {
             }
             case 'grow': archiveBabies([+el.dataset.b]); return done();
             case 'delbaby': if (confirm('Remove this child?')) c.family.babies = c.family.babies.filter(x => x.id !== +el.dataset.b); return done();
+            case 'addchild': {
+                const v = id => $(`#ovr_ac_${id}`).val();
+                const born = v('born');
+                if (born && !parseISO(born)) return note('Invalid birth date', 'warning');
+                const b = E.addManualChild({ name: v('name'), sex: v('sex'), parent: v('parent'), otherParent: (v('other') || '').trim(), born: born || null, via: v('via'), method: v('method') });
+                return done(`Added ${labelOf(b)}`);
+            }
+            case 'analyzelooks': {
+                note('Analyzing appearance...');
+                try {
+                    const r = await analyzeAppearance(), put = (o, key, x) => { if (typeof x === 'string' && x.trim() && x.toLowerCase() !== 'null') o[key] = x.trim().slice(0, 120); };
+                    put(c.looks.user, 'text', r.user); put(c.looks.char, 'text', r.char);
+                    for (const k2 of ['user', 'char']) if (c.entities[k2].second.name) put(c.entities[k2].second, 'look', r.second);
+                    return done('Appearance filled in');
+                } catch (err) { return note(`Appearance analysis failed: ${err.message || err}`, 'warning'); }
+            }
             case 'hist': return done(E.restoreCheckpoint(+el.dataset.i) ? 'Restored to the selected checkpoint' : 'Checkpoint not found');
             case 'undo': return done(E.restoreSnap() ? 'Last automatic change undone' : 'Nothing to undo');
             case 'preview': showPreview = !showPreview; return render();

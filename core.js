@@ -102,7 +102,7 @@ export const newEntity = () => ({
     postpartum: { method: 'natural', lactating: false },
     deliveryMethod: 'natural',
     babyNames: [],
-    second: { name: '', eyes: '', hair: '' },       // second parent (blank = the other tracked character)
+    second: { name: '', look: '' },                 // second parent (blank name = the other tracked character); look = one free-text appearance line
     trying: { on: false, cycles: 0 },
     disruption: null,                                // { kind, shift, date }
     nest: { state: 'none' },
@@ -118,7 +118,7 @@ export const CHAT_DEFAULTS = () => ({
     reveal: { era: 'modern', custom: '', practitioner: '' },
     date: { current: null, time: null, source: 'none', manual: false, manualValue: null, manualTime: null },
     family: { babies: [], grown: [], nextId: 1 },
-    looks: { user: { eyes: '', hair: '' }, char: { eyes: '', hair: '' } },
+    looks: { user: { text: '' }, char: { text: '' } },   // one free-text appearance line per character, used for inheritance
     history: [],
     entities: { user: newEntity(), char: newEntity() },
     snap: null,
@@ -147,6 +147,12 @@ export function newBaby(fam, props) {
 
 // v1.0.0 stored children per parent; they now live in the shared family list.
 function migrate(d) {
+    for (const k of ['user', 'char']) {
+        const l = d.looks?.[k];
+        if (l && !l.text && (l.eyes || l.hair)) l.text = [l.eyes && `${l.eyes} eyes`, l.hair && `${l.hair} hair`].filter(Boolean).join(', ');
+        const sec = d.entities?.[k]?.second;
+        if (sec && !sec.look && (sec.eyes || sec.hair)) sec.look = [sec.eyes && `${sec.eyes} eyes`, sec.hair && `${sec.hair} hair`].filter(Boolean).join(', ');
+    }
     for (const k of ['user', 'char']) {
         const kids = d.entities?.[k]?.children;
         if (!Array.isArray(kids)) continue;

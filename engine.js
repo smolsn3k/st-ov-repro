@@ -163,6 +163,22 @@ function finishBirth(k, method, lactating) {
     e.health = H.emptyHealth();
 }
 
+// Manually add a child (any birth date; age is derived from the chat date).
+export function addManualChild({ name = '', sex = 'F', parent = 'user', otherParent = '', born = null, via = 'birth', method = 'natural' } = {}) {
+    const fam = C().family, cur = C().date.current;
+    const b = newBaby(fam, { name: String(name).trim().slice(0, 40), sex: sex === 'M' ? 'M' : 'F', parent, via: via === 'hatch' ? 'hatch' : 'birth', born: born || cur, otherParent: otherParent || H.secondParentName(parent), method });
+    const age = b.born && cur ? diffDays(b.born, cur) : 0;
+    b.age = Math.max(0, age ?? 0);
+    if (S().inheritAppearance) {
+        const l = H.inheritedLooks(parent);
+        if (l.eyes) b.appearance.push(`${l.eyes} eyes`);
+        if (l.hair) b.appearance.push(`${l.hair} hair`);
+    }
+    fam.babies.push(b);
+    ageBabies(0);
+    return b;
+}
+
 export function giveBirth(k, method) {
     const e = ent(k);
     if (!e.pregnant) return false;

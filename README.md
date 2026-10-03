@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.1
+# Omegaverse Reproduction (SillyTavern extension) v1.2
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -32,3 +32,11 @@ Choose a Connection Manager profile for the background analyzer, or leave it on 
 
 ## Undo
 A checkpoint is saved before every automatic or manual change (limit configurable). "Restore to before this" in the Undo history list returns to that point. Swipes and regenerations roll back that message's earlier effects.
+
+## v1.2 changes
+- Every section is collapsible and remembers whether you left it open or closed, so toggling a setting no longer collapses anything or jumps the scroll position.
+- Cleaner look: switches for on/off options, grids for numbers, progress bars and colored phase badges on status cards, severity chips for complications.
+- Pregnancy (live birth) and Oviposition settings are separate collapsible groups; pregnancy and clutch details inside each status card collapse too.
+- Manual "Add a child" form (name, sex, who carried, other parent, birth date, born or hatched, delivery).
+- Appearance for inheritance is now one free-text line per person (eye and hair color are read from it). A button asks the AI to fill it in from the character card, your persona and the recent chat.
+- The family tree is now a real tree: couples at the top, connector lines down to each child, boys and girls color-coded, older children dimmed. Children of the same couple share one branch no matter who carried them.
