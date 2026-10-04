@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.6
+# Omegaverse Reproduction (SillyTavern extension) v1.7
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -74,3 +74,8 @@ The infoblock now follows the layout of delidgi's: one compact "Reproduction" ba
 ## v1.6 changes
 - Infoblock on/off and its top/bottom position are now in a "Chat infoblock" box at the top of the panel (and the wand popup), always visible. The other infoblock options remain under Global settings, Display, infoblock and history.
 - New chats default to user = male omega and bot = male alpha. Chats that already exist keep the physiology they were saved with; change it under This chat, Physiology and reproduction type.
+
+## v1.7 changes
+- Contraception labels show their protection, for example `Condom / barrier (85%)`. Defaults: barrier 85%, hormonal 95%, IUD/implant 98%, suppressants 70%, sterilized 100% (none is 0%). The first four are editable under Global settings, Cycle and conception. The percentage is how much a method lowers the conception chance; it stacks with the phase fertility (peak heat counts fully, suppressed heat is only 5%).
+- "Hormonal" is now "Hormonal (pills, patch, injection)".
+- The whole extension, panel, popup, family tree and chat infoblock, now follows the SillyTavern theme: one accent taken live from the theme's quote color, theme borders and text color, no hard-coded purple. Under Display, infoblock and history you can switch the accent to the theme's emphasis color, the theme's text color, or a custom color. Health badges keep green/amber/red so they stay readable.
