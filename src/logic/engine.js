@@ -1,5 +1,5 @@
 // Reproduction logic: heat/rut cycle, conception, pregnancy, oviposition, postpartum/lactation. No menstruation.
-import { S, C, PHYS, ERAS, CONTRA, trackedKeys, nameOf, newBaby, hooks } from '../core/core.js';
+import { S, C, PHYS, ERAS, contraMult, trackedKeys, nameOf, newBaby, hooks } from '../core/core.js';
 import { ageBabies } from './baby.js';
 import { addDays, diffDays, toDays } from '../core/dates.js';
 import * as H from './health.js';
@@ -47,7 +47,7 @@ export function phase(k) {
 
 export function conceptionOdds(k) {
     const p = phase(k), e = ent(k);
-    let mult = CONTRA[C().contraception[k]]?.mult ?? 1;
+    let mult = contraMult(C().contraception[k]);
     if (S().tryingMode && e.trying?.on && mult > 0) mult = 1;     // actively trying: protection set aside (sterile stays 0)
     return Math.max(0, Math.min(1, (S().conceptionChance / 100) * p.fertility * mult * H.tryingMult(k)));
 }
