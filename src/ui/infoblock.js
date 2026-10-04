@@ -1,6 +1,6 @@
 // Chat infoblock: compact, collapsible status cards under (or above) the latest message.
 // DOM only; never written into the message or the prompt.
-import { S, C, trackedKeys, nameOf, PHYS } from '../core/core.js';
+import { S, C, trackedKeys, nameOf, PHYS, contraProtection } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
@@ -46,7 +46,7 @@ function cycleCard(k, hidden) {
         const inWin = e.cycleDay <= Dn && info.sub !== 'suppressed';
         extra.push(inWin ? stat('calendar-day', 'pink', `${nm[0].toUpperCase()}${nm.slice(1)} day`, `${e.cycleDay} of ${Dn}`) : stat('calendar-day', 'purple', `Next ${nm}`, `in ${L - e.cycleDay + 1} d`));
         const con = c.contraception[k];
-        if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Protection', esc(D_CON[con] || con)));
+        if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Protection', esc(`${D_CON[con] || con} ${contraProtection(con)}%`)));
         if (e.trying?.on && s.tryingMode) extra.push(stat('bullseye', 'pink', 'Trying', `${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'}`));
     } else if (delay > 0) extra.push(stat('calendar-xmark', 'orange', 'Delay', `${delay} d`));
     const t = e.health.test;
@@ -209,4 +209,11 @@ export function applyCustomCss() {
     let el = document.getElementById('ovr_custom_css');
     if (!el) { el = document.createElement('style'); el.id = 'ovr_custom_css'; document.head.appendChild(el); }
     el.textContent = S().infoblockCss || '';
+    applyAccent();
+}
+
+// Accent color follows the SillyTavern theme by default (live CSS variables), or a custom color.
+export function applyAccent() {
+    const s = S(), v = { quote: 'var(--SmartThemeQuoteColor, currentColor)', em: 'var(--SmartThemeEmColor, currentColor)', body: 'var(--SmartThemeBodyColor, currentColor)' }[s.accentSource] || (/^#[0-9a-f]{3,8}$/i.test(s.accentColor) ? s.accentColor : 'var(--SmartThemeQuoteColor, currentColor)');
+    document.documentElement.style.setProperty('--ovr-accent-var', v);
 }

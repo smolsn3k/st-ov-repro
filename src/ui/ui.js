@@ -1,5 +1,5 @@
 // Settings panel (Extensions drawer): global settings, this-chat settings, status cards, children, family tree, history.
-import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, trackedKeys, nameOf, hooks } from '../core/core.js';
+import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, contraLabel, contraProtection, trackedKeys, nameOf, hooks } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
@@ -210,7 +210,8 @@ export function render() {
     const physRow = k => `<div class="ovr-row"><span>${esc(nameOf(k))}</span>
         <select class="text_pole" data-c="physiology.${k}">${opts(PHYS, c.physiology[k])}</select>
         <select class="text_pole" data-c="repro.${k}"><option value="live" ${c.repro[k] === 'live' ? 'selected' : ''}>Live birth</option><option value="oviposition" ${c.repro[k] === 'oviposition' ? 'selected' : ''}>Oviposition</option></select></div>`;
-    const conRow = k => `<label class="ovr-row"><span>${esc(nameOf(k))}</span><select class="text_pole" data-c="contraception.${k}">${opts(CONTRA, c.contraception[k])}</select></label>`;
+    const conOpts = cur => Object.keys(CONTRA).map(id => `<option value="${id}" ${id === cur ? 'selected' : ''}>${esc(contraLabel(id))}</option>`).join('');
+    const conRow = k => `<label class="ovr-row"><span>${esc(nameOf(k))}</span><select class="text_pole" data-c="contraception.${k}">${conOpts(c.contraception[k])}</select></label>`;
     const looksRow = k => `<label class="ovr-row"><span>${esc(nameOf(k))}</span><input type="text" class="text_pole" data-c="looks.${k}.text" value="${esc(c.looks[k].text)}" placeholder="e.g. brown eyes, black hair, tall"></label>`;
 
     const g = {
@@ -219,6 +220,8 @@ export function render() {
             ${pf.length ? '' : '<small class="ovr-dim">No Connection Manager profiles found; the main API is used.</small>'}
             <div class="ovr-switches">${chk('autoAnalyze', 'Analyze messages for events')}${chk('smartFilter', 'Only analyze when the text looks relevant')}</div>${grid(numField('analyzeDepth', 'Messages sent to analyzer', 1, 10))}`,
         cycle: `${grid(numField('conceptionChance', 'Conception chance at peak, %', 0, 100), numField('cycleLength', 'Cycle length, days', 10, 120), numField('heatDuration', 'Heat/rut duration, days', 1, 14))}
+            <small class="ovr-dim">Protection of each contraception method (how much it lowers conception chance):</small>
+            ${grid(...['condom', 'pill', 'iud', 'suppressant'].map(id => `<label class="ovr-field"><span>${esc(CONTRA[id].label)}, %</span><input type="number" class="text_pole" data-prot="${id}" min="0" max="100" value="${contraProtection(id)}"></label>`))}
             <div class="ovr-switches">${chk('tryingMode', 'Trying-for-a-baby mode')}${chk('disruptionsEnabled', 'Cycle disruptions')}</div>`,
         live: `${grid(numField('termWeeks', 'Pregnancy length, weeks', 8, 60), numField('twinsChance', 'Twins chance, %', 0, 100, 0.1), numField('tripletsChance', 'Triplets chance, %', 0, 100, 0.1), numField('doctorCooldown', 'Visit cooldown, days', 0, 60), numField('complicationChance', 'Complication multiplier, %', 0, 300), numField('fetalDiseaseChance', 'Fetal disease chance, %', 0, 100, 0.5))}
             <div class="ovr-switches">${chk('complicationsEnabled', 'Pregnancy complications')}${chk('fetalDiseasesEnabled', 'Fetal diseases')}</div>`,
@@ -227,6 +230,7 @@ export function render() {
         post: `${grid(numField('recoveryDays', 'Recovery (natural), days', 1, 180), numField('lactationReturnDays', 'Lactation suppresses cycle, days', 30, 720), numField('babyMaxAgeDays', 'Offer "older" after, days', 30, 7300))}
             <div class="ovr-switches">${chk('lactationDefault', 'Lactation after birth by default')}${chk('inheritAppearance', 'Appearance inheritance')}${chk('autoPickNames', 'Pick up baby names from chat')}${chk('birthDialog', 'Birth dialog')}${chk('graduationDialog', 'Graduation dialog')}</div>`,
         disp: `<div class="ovr-switches">${chk('infoblockDetails', 'Detailed pregnancy / clutch status')}${chk('infoblockBabies', 'Baby status')}${chk('infoblockShowHidden', 'Show hidden pregnancies')}</div>
+            ${grid(`<label class="ovr-field"><span>Accent color</span><select class="text_pole" data-g="accentSource"><option value="quote" ${s.accentSource === 'quote' ? 'selected' : ''}>Theme quote color (default)</option><option value="em" ${s.accentSource === 'em' ? 'selected' : ''}>Theme emphasis color</option><option value="body" ${s.accentSource === 'body' ? 'selected' : ''}>Theme text color</option><option value="custom" ${s.accentSource === 'custom' ? 'selected' : ''}>Custom color</option></select></label>`, s.accentSource === 'custom' ? `<label class="ovr-field"><span>Custom accent</span><input type="color" class="text_pole" data-g="accentColor" value="${esc(s.accentColor)}"></label>` : '')}
             <textarea class="text_pole" data-g="infoblockCss" rows="3" placeholder="Custom CSS for the infoblock (classes start with .ovr-ib)">${esc(s.infoblockCss)}</textarea>
             ${grid(numField('historyLimit', 'Undo checkpoints kept', 5, 100), numField('injectDepth', 'Injection depth', 0, 20), `<label class="ovr-field"><span>Numeric date order</span><select class="text_pole" data-g="dateOrder"><option value="DMY" ${s.dateOrder === 'DMY' ? 'selected' : ''}>DD/MM/YYYY</option><option value="MDY" ${s.dateOrder === 'MDY' ? 'selected' : ''}>MM/DD/YYYY</option></select></label>`)}`,
     };
@@ -289,6 +293,10 @@ export function mount() {
     }, true);
 
     $(document).on('change', `${root} [data-g]`, e => { const el = e.currentTarget; S()[el.dataset.g] = val(el); saveS(); applyCustomCss(); refresh(); });
+    $(document).on('change', `${root} [data-prot]`, e => {
+        const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round(Number(el.value) || 0)));
+        (S().protection ||= {})[el.dataset.prot] = v; saveS(); refresh();
+    });
     $(document).on('change', `${root} [data-c]`, e => { const el = e.currentTarget; setPath(C(), el.dataset.c, val(el)); saveC(); refresh(); });
     $(document).on('change', `${root} [data-ent][data-path]`, e => {
         const el = e.currentTarget; setPath(C().entities[el.dataset.ent], el.dataset.path, val(el));
