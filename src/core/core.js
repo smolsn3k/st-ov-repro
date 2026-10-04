@@ -40,13 +40,22 @@ export const ERAS = {
 };
 
 export const CONTRA = {
-    none: { label: 'None', mult: 1 },
-    condom: { label: 'Condom / barrier', mult: 0.15 },
-    pill: { label: 'Hormonal contraceptive', mult: 0.05 },
-    iud: { label: 'IUD / implant', mult: 0.02 },
-    suppressant: { label: 'Heat/rut suppressants', mult: 0.3 },
-    sterile: { label: 'Sterilized / infertile', mult: 0 },
+    none: { label: 'None', prot: 0 },
+    condom: { label: 'Condom / barrier', prot: 85 },
+    pill: { label: 'Hormonal (pills, patch, injection)', prot: 95 },
+    iud: { label: 'IUD / implant', prot: 98 },
+    suppressant: { label: 'Heat/rut suppressants', prot: 70 },
+    sterile: { label: 'Sterilized / infertile', prot: 100 },
 };
+// Protection percentage per method: editable in settings (none is always 0, sterile always 100).
+export const contraProtection = id => {
+    if (id === 'none' || !CONTRA[id]) return 0;
+    if (id === 'sterile') return 100;
+    const v = Number(S().protection?.[id]);
+    return Math.max(0, Math.min(100, Number.isFinite(v) ? v : CONTRA[id].prot));
+};
+export const contraMult = id => 1 - contraProtection(id) / 100;
+export const contraLabel = id => (id === 'none' || !CONTRA[id] ? CONTRA.none.label : `${CONTRA[id].label} (${contraProtection(id)}%)`);
 
 export const DEFAULTS = {
     enabled: true,
@@ -76,6 +85,9 @@ export const DEFAULTS = {
     complicationsEnabled: true, complicationChance: 100,   // chance multiplier, %
     fetalDiseasesEnabled: true, fetalDiseaseChance: 4,     // % per pregnancy
     doctorCooldown: 3,         // story days between visits
+    protection: { condom: 85, pill: 95, iud: 98, suppressant: 70 },   // % protection per method
+    accentSource: 'quote',     // quote | em | body | custom : which theme color drives the accent
+    accentColor: '#9b87f5',    // used when accentSource is custom
     tryingMode: true,          // enables the "trying for a baby" control
     disruptionsEnabled: true,  // stress, illness etc. delay the next heat/rut
     inheritAppearance: true,
