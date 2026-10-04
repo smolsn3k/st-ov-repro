@@ -38,11 +38,11 @@ export function phase(k) {
     const d = e.cycleDay, Dn = s.heatDuration, L = s.cycleLength;
     const suppressed = c.contraception[k] === 'suppressant';
     if (d <= Dn) {
-        if (suppressed) return { id: 'suppressed', label: `${name} (suppressed)`, fertility: 0.05 };
-        return { id: r === 'omega' ? 'heat' : 'rut', label: `${name}, day ${d}/${Dn}`, fertility: r === 'omega' ? 1 : 0.8 };
+        if (suppressed) return { id: 'suppressed', label: `${name} (suppressed), cycle ${d}/${L}`, fertility: 0.05 };
+        return { id: r === 'omega' ? 'heat' : 'rut', label: `${name}, day ${d}/${Dn} (cycle ${d}/${L})`, fertility: r === 'omega' ? 1 : 0.8 };
     }
-    if (d > L - 3) return { id: 'pre', label: `Pre-${name.toLowerCase()}`, fertility: 0.15 };
-    return { id: 'quiet', label: `Between ${name.toLowerCase()}s`, fertility: 0.03 };
+    if (d > L - 3) return { id: 'pre', label: `Pre-${name.toLowerCase()}, cycle ${d}/${L}`, fertility: 0.15 };
+    return { id: 'quiet', label: `Between ${name.toLowerCase()}s, cycle ${d}/${L}`, fertility: 0.03 };
 }
 
 export function conceptionOdds(k) {

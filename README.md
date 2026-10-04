@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.2
+# Omegaverse Reproduction (SillyTavern extension) v1.3
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -40,3 +40,12 @@ A checkpoint is saved before every automatic or manual change (limit configurabl
 - Manual "Add a child" form (name, sex, who carried, other parent, birth date, born or hatched, delivery).
 - Appearance for inheritance is now one free-text line per person (eye and hair color are read from it). A button asks the AI to fill it in from the character card, your persona and the recent chat.
 - The family tree is now a real tree: couples at the top, connector lines down to each child, boys and girls color-coded, older children dimmed. Children of the same couple share one branch no matter who carried them.
+
+## v1.3 changes (chat infoblock)
+- Redesigned card with a themed header, one card per tracked character, colored phase badges and progress bars.
+- Position setting: top or bottom of the latest message.
+- Cycle shown as day/length (for example 4/30) following your cycle settings, with the heat/rut window tinted on the bar and a "next heat in N days" line.
+- Pregnancy status when pregnant (week out of term, trimester, due date, baby count and sex once confirmed, size, movement, position, swelling, weight gain, sensations, diagnosed concerns). Hidden pregnancies stay hidden unless "Show hidden pregnancies" is on.
+- Clutch and incubation progress for oviposition, recovery and lactation status after birth.
+- Baby status once a baby is born: sleep, feeding, diaper, mood, health, teething and colic, latest and upcoming milestone.
+- New toggles: detailed pregnancy/clutch status, baby status.

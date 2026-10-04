@@ -90,6 +90,9 @@ export const DEFAULTS = {
     lactationDefault: true, lactationReturnDays: 180,
     // Infoblock and history
     infoblock: true, infoblockShowHidden: false, infoblockCss: '',
+    infoblockPosition: 'bottom',   // top | bottom of the message
+    infoblockDetails: true,        // detailed pregnancy / clutch / postpartum status
+    infoblockBabies: true,         // baby status once children are born
     historyLimit: 25,
 };
 
