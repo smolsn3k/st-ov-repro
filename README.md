@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.3
+# Omegaverse Reproduction (SillyTavern extension) v1.4
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -49,3 +49,16 @@ A checkpoint is saved before every automatic or manual change (limit configurabl
 - Clutch and incubation progress for oviposition, recovery and lactation status after birth.
 - Baby status once a baby is born: sleep, feeding, diaper, mood, health, teething and colic, latest and upcoming milestone.
 - New toggles: detailed pregnancy/clutch status, baby status.
+
+## v1.4 changes
+- A new entry in the magic wand menu ("Omegaverse Reproduction") opens the whole panel in a popup. Click outside, press Esc or use the close button to dismiss it. The panel in the Extensions drawer still works too; while the popup is open the panel is shown there instead.
+- Files are organized into folders:
+
+```
+index.js            entry point (must stay at the root)
+manifest.json       (must stay at the root)
+style.css           (must stay at the root)
+src/core/           core.js (settings, state), dates.js, data.js (content pools)
+src/logic/          engine.js, health.js, baby.js, analyze.js, prompt.js
+src/ui/             ui.js (panel, popup, wand entry), infoblock.js
+```
