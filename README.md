@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.5
+# Omegaverse Reproduction (SillyTavern extension) v1.6
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -70,3 +70,7 @@ The infoblock now follows the layout of delidgi's: one compact "Reproduction" ba
 - Clutch and recovery cards, and a baby card per child (health, mood, feeding, sleep, diaper, teeth, colic, other parent, personality, appearance, milestones, care tip).
 - Open/closed state of every card is remembered between messages; the "detailed status" and "baby status" settings still apply.
 - Custom CSS classes now start with `.ovr-ib` (old `.ovr-infoblock` rules no longer apply).
+
+## v1.6 changes
+- Infoblock on/off and its top/bottom position are now in a "Chat infoblock" box at the top of the panel (and the wand popup), always visible. The other infoblock options remain under Global settings, Display, infoblock and history.
+- New chats default to user = male omega and bot = male alpha. Chats that already exist keep the physiology they were saved with; change it under This chat, Physiology and reproduction type.

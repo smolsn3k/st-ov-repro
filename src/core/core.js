@@ -115,7 +115,7 @@ export const newEntity = () => ({
 });
 
 export const CHAT_DEFAULTS = () => ({
-    physiology: { user: 'f-omega', char: 'm-alpha' },
+    physiology: { user: 'm-omega', char: 'm-alpha' },
     repro: { user: 'live', char: 'live' },          // live | oviposition
     contraception: { user: 'none', char: 'none' },
     reveal: { era: 'modern', custom: '', practitioner: '' },

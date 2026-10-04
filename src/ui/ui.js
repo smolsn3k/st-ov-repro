@@ -226,8 +226,7 @@ export function render() {
             <div class="ovr-switches">${chk('eggComplicationsEnabled', 'Egg complications')}${chk('embryoDiseasesEnabled', 'Embryo diseases')}${chk('shellDefectsEnabled', 'Shell defects')}${chk('nestRisk', 'Unprepared nest can cost eggs')}</div>`,
         post: `${grid(numField('recoveryDays', 'Recovery (natural), days', 1, 180), numField('lactationReturnDays', 'Lactation suppresses cycle, days', 30, 720), numField('babyMaxAgeDays', 'Offer "older" after, days', 30, 7300))}
             <div class="ovr-switches">${chk('lactationDefault', 'Lactation after birth by default')}${chk('inheritAppearance', 'Appearance inheritance')}${chk('autoPickNames', 'Pick up baby names from chat')}${chk('birthDialog', 'Birth dialog')}${chk('graduationDialog', 'Graduation dialog')}</div>`,
-        disp: `<div class="ovr-switches">${chk('infoblock', 'Chat infoblock')}${chk('infoblockDetails', 'Detailed pregnancy / clutch status')}${chk('infoblockBabies', 'Baby status')}${chk('infoblockShowHidden', 'Show hidden pregnancies')}</div>
-            ${grid(`<label class="ovr-field"><span>Infoblock position</span><select class="text_pole" data-g="infoblockPosition"><option value="bottom" ${s.infoblockPosition === 'bottom' ? 'selected' : ''}>Bottom of the message</option><option value="top" ${s.infoblockPosition === 'top' ? 'selected' : ''}>Top of the message</option></select></label>`)}
+        disp: `<div class="ovr-switches">${chk('infoblockDetails', 'Detailed pregnancy / clutch status')}${chk('infoblockBabies', 'Baby status')}${chk('infoblockShowHidden', 'Show hidden pregnancies')}</div>
             <textarea class="text_pole" data-g="infoblockCss" rows="3" placeholder="Custom CSS for the infoblock (classes start with .ovr-ib)">${esc(s.infoblockCss)}</textarea>
             ${grid(numField('historyLimit', 'Undo checkpoints kept', 5, 100), numField('injectDepth', 'Injection depth', 0, 20), `<label class="ovr-field"><span>Numeric date order</span><select class="text_pole" data-g="dateOrder"><option value="DMY" ${s.dateOrder === 'DMY' ? 'selected' : ''}>DD/MM/YYYY</option><option value="MDY" ${s.dateOrder === 'MDY' ? 'selected' : ''}>MM/DD/YYYY</option></select></label>`)}`,
     };
@@ -235,10 +234,14 @@ export function render() {
     const sp = scrollParent(body[0]), top = sp ? sp.scrollTop : 0;
     body.html(`
     <div class="ovr-switches top">${chk('enabled', 'Enabled')}${chk('notifications', 'Notifications')}</div>
+    <div class="ovr-quick"><div class="ovr-quick-title"><i class="fa-solid fa-message"></i> Chat infoblock</div>
+        <div class="ovr-quick-row">${chk('infoblock', 'Show under messages')}
+        <select class="text_pole" data-g="infoblockPosition" title="Where the infoblock sits in the latest message"><option value="bottom" ${s.infoblockPosition === 'bottom' ? 'selected' : ''}>Bottom of the message</option><option value="top" ${s.infoblockPosition === 'top' ? 'selected' : ''}>Top of the message</option></select></div>
+        <small class="ovr-dim">More infoblock options (details, baby status, hidden pregnancies, custom CSS) are under Global settings, Display and history.</small></div>
     ${sec('settings', 'Global settings', `
         ${sec('g-api', 'Tracking and API', g.api, 'ovr-sub')}${sec('g-cycle', 'Cycle and conception', g.cycle, 'ovr-sub')}
         ${sec('g-live', 'Pregnancy (live birth)', g.live, 'ovr-sub')}${sec('g-ovi', 'Oviposition', g.ovi, 'ovr-sub')}
-        ${sec('g-post', 'Postpartum and children', g.post, 'ovr-sub')}${sec('g-disp', 'Display and history', g.disp, 'ovr-sub')}`)}
+        ${sec('g-post', 'Postpartum and children', g.post, 'ovr-sub')}${sec('g-disp', 'Display, infoblock and history', g.disp, 'ovr-sub')}`)}
     ${sec('chat', 'This chat', `
         <div class="ovr-kv"><span>Story date</span><b>${c.date.current ? pretty(c.date.current) : 'not detected yet'} <small class="ovr-dim">(${c.date.source})</small></b><span>Time of day</span><b>${c.date.time || 'unknown'}</b></div>
         <div class="ovr-inline"><input type="date" class="text_pole" id="ovr_date_in" value="${c.date.current || ''}"><input type="time" class="text_pole" id="ovr_time_in" value="${c.date.time || ''}">

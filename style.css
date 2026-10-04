@@ -145,6 +145,13 @@ details.ovr-ib .ovr-ib-health.critical { border: 1px solid rgba(255,60,60,.4); c
 .ovr-modal .ovr-row .text_pole { flex: 1 1 50%; margin: 0; width: auto; }
 .ovr-modal .ovr-btns { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
 
+/* quick infoblock controls */
+.ovr-scope .ovr-quick { border: 1px solid var(--ovr-border); border-radius: 10px; padding: 8px 10px; margin: 6px 0; display: flex; flex-direction: column; gap: 6px; background: var(--ovr-soft); }
+.ovr-scope .ovr-quick-title { font-weight: 600; font-size: .92em; }
+.ovr-scope .ovr-quick-title i { margin-right: 6px; color: var(--ovr-accent); }
+.ovr-scope .ovr-quick-row { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+.ovr-scope .ovr-quick-row .text_pole { margin: 0; width: auto; flex: 1 1 180px; }
+
 /* popup opened from the wand menu */
 .ovr-popup { position: fixed; inset: 0; z-index: 100000; background: rgba(0,0,0,.6); display: flex; align-items: center; justify-content: center; padding: 12px; }
 .ovr-popup-box { background: var(--SmartThemeBlurTintColor, #1e1e24); color: var(--SmartThemeBodyColor, #eee); border: 1px solid var(--SmartThemeBorderColor); border-radius: 14px; width: min(780px, 96vw); max-height: 92vh; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,.5); overflow: hidden; }
