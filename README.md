@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.4
+# Omegaverse Reproduction (SillyTavern extension) v1.5
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -62,3 +62,11 @@ src/core/           core.js (settings, state), dates.js, data.js (content pools)
 src/logic/          engine.js, health.js, baby.js, analyze.js, prompt.js
 src/ui/             ui.js (panel, popup, wand entry), infoblock.js
 ```
+
+## v1.5 changes (chat infoblock redo)
+The infoblock now follows the layout of delidgi's: one compact "Reproduction" bar that is collapsed when you first see it, with the characters' states in its header (for example `Setsune · Day 20/28 · Luteal`). Open it for one collapsible card per tracked character (and one per baby), each collapsed by default.
+- Cycle card: day/length badge and phase, progress bar with the heat/rut window tinted, tiles for Fertility, Libido, Mood and Physical, then next heat/rut (or day of heat), protection, trying and test result, and a short note. Phases are heat/rut (early, peak, late), post-heat, calm, pre-heat and suppressed.
+- Pregnancy card: week/term and trimester, conceived, due, fetus count and sex, other parent, health, size, mood, weight, libido, movement, swelling, contractions, position, sensations and advice. A hidden pregnancy keeps showing the running cycle (and "Late N d") until it is discovered.
+- Clutch and recovery cards, and a baby card per child (health, mood, feeding, sleep, diaper, teeth, colic, other parent, personality, appearance, milestones, care tip).
+- Open/closed state of every card is remembered between messages; the "detailed status" and "baby status" settings still apply.
+- Custom CSS classes now start with `.ovr-ib` (old `.ovr-infoblock` rules no longer apply).
