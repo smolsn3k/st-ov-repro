@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.7
+# Omegaverse Reproduction (SillyTavern extension) v1.8
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -79,3 +79,10 @@ The infoblock now follows the layout of delidgi's: one compact "Reproduction" ba
 - Contraception labels show their protection, for example `Condom / barrier (85%)`. Defaults: barrier 85%, hormonal 95%, IUD/implant 98%, suppressants 70%, sterilized 100% (none is 0%). The first four are editable under Global settings, Cycle and conception. The percentage is how much a method lowers the conception chance; it stacks with the phase fertility (peak heat counts fully, suppressed heat is only 5%).
 - "Hormonal" is now "Hormonal (pills, patch, injection)".
 - The whole extension, panel, popup, family tree and chat infoblock, now follows the SillyTavern theme: one accent taken live from the theme's quote color, theme borders and text color, no hard-coded purple. Under Display, infoblock and history you can switch the accent to the theme's emphasis color, the theme's text color, or a custom color. Health badges keep green/amber/red so they stay readable.
+
+## v1.8 changes (phone fixes)
+- Infoblock header: the long bubble is gone. The main bar now shows "Reproduction" with a small plain sub-line (for example `Setsune 12/30 Calm   Satoru 15/30 Calm`). Per-character badges are short and stay on one line (`12/30 · Calm`, `14/40 wk`, `5/14 d`, a sex icon plus age for babies) and are trimmed with an ellipsis if there is still not enough room. Slightly tighter sizing on narrow screens.
+- Wand popup: the background was the theme's see-through tint, so the chat showed through. It is now nearly opaque by default (95%), uses the real screen height on phones (no cut-off at the bottom), scrolls inside itself without scrolling the chat behind, closes with a tap outside, and uses smaller controls.
+- Opacity: a slider in the popup header changes the popup opacity live (30-100%). Settings, Display, infoblock and history also has Popup opacity and Infoblock background (100% = the theme's own tint, lower = more see-through).
+- The panel text size now follows your SillyTavern font size at a slightly smaller scale, so it is not oversized on phones.
+- The wand menu entry is now named "OV Reproduction".

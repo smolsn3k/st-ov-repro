@@ -40,7 +40,7 @@ function cycleCard(k, hidden) {
     const rawDay = hidden ? e.cycleDay + (e.pregnant ? e.days : e.egg.carryDays) : e.cycleDay;
     const info = H.cycleInfo(k, rawDay), day = Math.min(rawDay, L), delay = Math.max(0, rawDay - L);
     const nm = PHYS[c.physiology[k]].role === 'omega' ? 'heat' : 'rut';
-    const badge = hidden ? (delay > 0 ? `Late ${delay} d` : `Day ${day}/${L} · ${info.label}`) : `Day ${day}/${L} · ${info.label}`;
+    const badge = hidden && delay > 0 ? `Late ${delay} d` : `${day}/${L} · ${info.label}`;
     const extra = [];
     if (!hidden) {
         const inWin = e.cycleDay <= Dn && info.sub !== 'suppressed';
@@ -84,7 +84,7 @@ function pregCard(k, reveal) {
     ].filter(Boolean).join('');
     const notes = (ds ? note(esc(p.symptoms.join(' · '))) : '') + (ht.names.length ? note(`${ic('triangle-exclamation')} ${esc(ht.names.join(', '))}`, 'rec') : '') + (ds ? note(`${ic('lightbulb')} ${esc(p.advice)}`, 'rec') : '');
     const body = `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill pregnancy" style="width:${pct}%"></div></div><div class="ovr-ib-grid">${tiles}${notes}</div>`;
-    return card(`p-${k}`, 'pregnancy', 'heart', `${esc(nameOf(k))} · Pregnancy`, `${w}/${s.termWeeks} wk · ${tri} tri.`, 'pregnancy', body);
+    return card(`p-${k}`, 'pregnancy', 'heart', `${esc(nameOf(k))} · Pregnancy`, `${w}/${s.termWeeks} wk`, 'pregnancy', body);
 }
 
 // ── Clutch / incubation card ──
@@ -121,7 +121,7 @@ function postCard(k) {
         ds && inRec && st ? stat('heart', 'blue', 'Physical', esc(st.sym.slice(0, 2).join(', '))) : '',
     ].filter(Boolean).join('');
     const body = `${inRec ? `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill baby" style="width:${Math.min(100, (e.postpartumDays / len) * 100)}%"></div></div>` : ''}<div class="ovr-ib-grid">${tiles}${ds && inRec && st ? note(esc(st.sym.join(' · '))) : ''}</div>`;
-    return card(`r-${k}`, 'cycle', 'heart-pulse', `${esc(nameOf(k))} · Recovery`, inRec ? `Postpartum · day ${e.postpartumDays}/${len}` : `Lactating · day ${e.postpartumDays}`, 'cycle', body);
+    return card(`r-${k}`, 'cycle', 'heart-pulse', `${esc(nameOf(k))} · Recovery`, inRec ? `Day ${e.postpartumDays}/${len}` : 'Lactating', 'cycle', body);
 }
 
 function carrierCard(k) {
@@ -155,17 +155,17 @@ function babyCard(b) {
         + (b.condition && b.conditionKnown ? note(`${ic('star')} ${esc(b.condition)}`, 'special') : '')
         + (miles ? note(`${ic('star')} ${esc(miles)}`) : '')
         + (need.note ? note(`${ic('lightbulb')} ${esc(need.note)}`, 'rec') : '');
-    return card(`b-${b.id}`, 'baby', 'baby', esc(labelOf(b)), `<span class="ovr-ib-${sexCol}">${sexIcon}</span> · ${esc(ageWords(b.age))}${st.key !== 'newborn' ? ' · ' + esc(st.label) : ''}`, 'baby', `<div class="ovr-ib-grid">${tiles}${notes}</div>`);
+    return card(`b-${b.id}`, 'baby', 'baby', esc(labelOf(b)), `<span class="ovr-ib-${sexCol}">${sexIcon}</span> ${esc(ageWords(b.age))}`, 'baby', `<div class="ovr-ib-grid">${tiles}${notes}</div>`);
 }
 
 function brief(k) {
     const e = C().entities[k], s = S(), reveal = s.infoblockShowHidden, n = esc(nameOf(k));
-    if (e.pregnant && (e.known || reveal)) return `${n} · ${E.weeksOf(e)} wk`;
-    if (e.egg.stage !== 'none' && (e.known || reveal)) return `${n} · clutch`;
-    if (e.postpartumDays > 0) return `${n} · recovery`;
+    if (e.pregnant && (e.known || reveal)) return `${n} ${E.weeksOf(e)} wk`;
+    if (e.egg.stage !== 'none' && (e.known || reveal)) return `${n} clutch`;
+    if (e.postpartumDays > 0) return `${n} recovery`;
     const hidden = E.isCarrying(e) && !e.known;
     const raw = hidden ? e.cycleDay + (e.pregnant ? e.days : e.egg.carryDays) : e.cycleDay, info = H.cycleInfo(k, raw);
-    return `${n} · ${raw > s.cycleLength ? `Late ${raw - s.cycleLength} d` : `Day ${raw}/${s.cycleLength} · ${info.label}`}`;
+    return `${n} ${raw > s.cycleLength ? `late ${raw - s.cycleLength} d` : `${raw}/${s.cycleLength} ${info.label}`}`;
 }
 
 function html() {
@@ -175,9 +175,10 @@ function html() {
     cards.push(...kids.map(babyCard));
     if (!cards.length) return '';
     if (cards.length === 1) return cards[0];
-    const b = keys.map(brief).join('  ·  ') + (kids.length ? `  ·  ${kids.length} ${kids.length > 1 ? 'children' : 'child'}` : '');
+    const items = keys.map(brief); if (kids.length) items.push(`${kids.length} ${kids.length > 1 ? 'children' : 'child'}`);
+    const sub = items.map(t => `<span>${t}</span>`).join('');
     return `<details class="ovr-ib ovr-ib-multi" data-key="main" ${openSet.has('main') ? 'open' : ''}>
-        <summary><div class="ovr-ib-header"><div class="ovr-ib-icon cycle">${ic('venus-mars')}</div><span class="ovr-ib-title">Reproduction</span><span class="ovr-ib-badge cycle">${b}</span><div class="ovr-ib-chev">${ic('chevron-down')}</div></div></summary>
+        <summary><div class="ovr-ib-header"><div class="ovr-ib-icon cycle">${ic('venus-mars')}</div><div class="ovr-ib-titlebox"><span class="ovr-ib-title">Reproduction</span><div class="ovr-ib-subline">${sub}</div></div><div class="ovr-ib-chev">${ic('chevron-down')}</div></div></summary>
         <div class="ovr-ib-c ovr-ib-multi-body">${cards.join('')}</div></details>`;
 }
 
@@ -215,5 +216,8 @@ export function applyCustomCss() {
 // Accent color follows the SillyTavern theme by default (live CSS variables), or a custom color.
 export function applyAccent() {
     const s = S(), v = { quote: 'var(--SmartThemeQuoteColor, currentColor)', em: 'var(--SmartThemeEmColor, currentColor)', body: 'var(--SmartThemeBodyColor, currentColor)' }[s.accentSource] || (/^#[0-9a-f]{3,8}$/i.test(s.accentColor) ? s.accentColor : 'var(--SmartThemeQuoteColor, currentColor)');
-    document.documentElement.style.setProperty('--ovr-accent-var', v);
+    const root = document.documentElement.style;
+    root.setProperty('--ovr-accent-var', v);
+    root.setProperty('--ovr-pop-op', String(Math.max(20, Math.min(100, Number(s.popupOpacity) || 95))));
+    root.setProperty('--ovr-ib-op', String(Number.isFinite(Number(s.infoblockOpacity)) ? Math.max(0, Math.min(100, Number(s.infoblockOpacity))) : 100));
 }

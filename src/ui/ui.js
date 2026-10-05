@@ -89,6 +89,7 @@ function babyCard(b) {
 
 const numField = (key, label, min, max, step = 1) => `<label class="ovr-field"><span>${label}</span><input type="number" class="text_pole" data-g="${key}" min="${min}" max="${max}" step="${step}" value="${S()[key]}"></label>`;
 const chk = (key, label) => `<label class="ovr-switch"><input type="checkbox" data-g="${key}" ${S()[key] ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">${label}</span></label>`;
+const rng = (key, label, min, max, step = 5) => `<label class="ovr-field"><span>${label}: <b data-rv="${key}">${S()[key]}%</b></span><input type="range" data-gr="${key}" min="${min}" max="${max}" step="${step}" value="${S()[key]}"></label>`;
 const grid = (...f) => `<div class="ovr-grid">${f.join('')}</div>`;
 const ep = (k, path, type, val, extra = '') => `<input type="${type}" class="text_pole" data-ent="${k}" data-path="${path}" ${type === 'checkbox' ? (val ? 'checked' : '') : `value="${esc(val)}"`} ${extra}>`;
 
@@ -230,6 +231,7 @@ export function render() {
         post: `${grid(numField('recoveryDays', 'Recovery (natural), days', 1, 180), numField('lactationReturnDays', 'Lactation suppresses cycle, days', 30, 720), numField('babyMaxAgeDays', 'Offer "older" after, days', 30, 7300))}
             <div class="ovr-switches">${chk('lactationDefault', 'Lactation after birth by default')}${chk('inheritAppearance', 'Appearance inheritance')}${chk('autoPickNames', 'Pick up baby names from chat')}${chk('birthDialog', 'Birth dialog')}${chk('graduationDialog', 'Graduation dialog')}</div>`,
         disp: `<div class="ovr-switches">${chk('infoblockDetails', 'Detailed pregnancy / clutch status')}${chk('infoblockBabies', 'Baby status')}${chk('infoblockShowHidden', 'Show hidden pregnancies')}</div>
+            ${grid(rng('popupOpacity', 'Popup opacity', 30, 100), rng('infoblockOpacity', 'Infoblock background', 0, 100))}
             ${grid(`<label class="ovr-field"><span>Accent color</span><select class="text_pole" data-g="accentSource"><option value="quote" ${s.accentSource === 'quote' ? 'selected' : ''}>Theme quote color (default)</option><option value="em" ${s.accentSource === 'em' ? 'selected' : ''}>Theme emphasis color</option><option value="body" ${s.accentSource === 'body' ? 'selected' : ''}>Theme text color</option><option value="custom" ${s.accentSource === 'custom' ? 'selected' : ''}>Custom color</option></select></label>`, s.accentSource === 'custom' ? `<label class="ovr-field"><span>Custom accent</span><input type="color" class="text_pole" data-g="accentColor" value="${esc(s.accentColor)}"></label>` : '')}
             <textarea class="text_pole" data-g="infoblockCss" rows="3" placeholder="Custom CSS for the infoblock (classes start with .ovr-ib)">${esc(s.infoblockCss)}</textarea>
             ${grid(numField('historyLimit', 'Undo checkpoints kept', 5, 100), numField('injectDepth', 'Injection depth', 0, 20), `<label class="ovr-field"><span>Numeric date order</span><select class="text_pole" data-g="dateOrder"><option value="DMY" ${s.dateOrder === 'DMY' ? 'selected' : ''}>DD/MM/YYYY</option><option value="MDY" ${s.dateOrder === 'MDY' ? 'selected' : ''}>MM/DD/YYYY</option></select></label>`)}`,
@@ -293,6 +295,11 @@ export function mount() {
     }, true);
 
     $(document).on('change', `${root} [data-g]`, e => { const el = e.currentTarget; S()[el.dataset.g] = val(el); saveS(); applyCustomCss(); refresh(); });
+    $(document).on('input change', `${root} [data-gr]`, e => {
+        const el = e.currentTarget; S()[el.dataset.gr] = Number(el.value); applyCustomCss();
+        $(`${root} [data-rv="${el.dataset.gr}"]`).text(`${el.value}%`);
+        if (e.type === 'change') saveS();
+    });
     $(document).on('change', `${root} [data-prot]`, e => {
         const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round(Number(el.value) || 0)));
         (S().protection ||= {})[el.dataset.prot] = v; saveS(); refresh();
@@ -405,11 +412,12 @@ export function openPopup() {
     if (popupOpen) return closePopup();
     const body = $('#ovr_body');
     if (!body.length) return;
-    const pop = $(`<div id="ovr_popup" class="ovr-popup"><div class="ovr-popup-box"><div class="ovr-popup-head"><b><i class="fa-solid fa-venus-mars"></i> Omegaverse Reproduction</b><div class="ovr-popup-close menu_button" title="Close">&times;</div></div><div class="ovr-popup-body"></div></div></div>`);
+    const pop = $(`<div id="ovr_popup" class="ovr-popup"><div class="ovr-popup-box"><div class="ovr-popup-head"><b><i class="fa-solid fa-venus-mars"></i> Omegaverse Reproduction</b><label class="ovr-popup-op" title="Popup opacity"><i class="fa-solid fa-droplet"></i><input type="range" id="ovr_pop_op" min="30" max="100" step="5" value="${S().popupOpacity}"></label><div class="ovr-popup-close menu_button" title="Close">&times;</div></div><div class="ovr-popup-body"></div></div></div>`);
     pop.data('prevDisplay', body[0].style.display);
     pop.find('.ovr-popup-body').append(body);
     body.css('display', 'block');
-    pop.on('mousedown', e => { if (e.target === pop[0]) closePopup(); });
+    pop.on('pointerdown', e => { if (e.target === pop[0]) closePopup(); });
+    pop.find('#ovr_pop_op').on('input', e => { S().popupOpacity = Number(e.target.value); applyCustomCss(); }).on('change', () => saveS());
     pop.find('.ovr-popup-close').on('click', closePopup);
     $('body').append(pop);
     document.addEventListener('keydown', escClose, true);
@@ -421,7 +429,7 @@ function addWandButton(tries = 0) {
     if ($('#ovr_wand').length) return;
     const menu = $('#extensionsMenu');
     if (!menu.length) { if (tries < 20) setTimeout(() => addWandButton(tries + 1), 500); return; }
-    const item = $(`<div id="ovr_wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem" title="Open Omegaverse Reproduction"><div class="fa-solid fa-venus-mars extensionsMenuExtensionIcon"></div><span>Omegaverse Reproduction</span></div>`);
+    const item = $(`<div id="ovr_wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem" title="Open Omegaverse Reproduction"><div class="fa-solid fa-venus-mars extensionsMenuExtensionIcon"></div><span>OV Reproduction</span></div>`);
     item.on('click', openPopup).on('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPopup(); } });
     menu.append(item);
 }

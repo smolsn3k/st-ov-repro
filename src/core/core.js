@@ -86,6 +86,8 @@ export const DEFAULTS = {
     fetalDiseasesEnabled: true, fetalDiseaseChance: 4,     // % per pregnancy
     doctorCooldown: 3,         // story days between visits
     protection: { condom: 85, pill: 95, iud: 98, suppressant: 70 },   // % protection per method
+    popupOpacity: 95,          // % opacity of the wand popup background
+    infoblockOpacity: 100,     // % of the theme's own background tint for the chat infoblock
     accentSource: 'quote',     // quote | em | body | custom : which theme color drives the accent
     accentColor: '#9b87f5',    // used when accentSource is custom
     tryingMode: true,          // enables the "trying for a baby" control
