@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.8
+# Omegaverse Reproduction (SillyTavern extension) v1.9
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -86,3 +86,11 @@ The infoblock now follows the layout of delidgi's: one compact "Reproduction" ba
 - Opacity: a slider in the popup header changes the popup opacity live (30-100%). Settings, Display, infoblock and history also has Popup opacity and Infoblock background (100% = the theme's own tint, lower = more see-through).
 - The panel text size now follows your SillyTavern font size at a slightly smaller scale, so it is not oversized on phones.
 - The wand menu entry is now named "OV Reproduction".
+
+## v1.9 changes (reading the story)
+- **Mood and physical state** are now read from the chat for each tracked character and shown in the Mood and Physical tiles (infoblock and status card) instead of the generic phase text. They stay valid for a number of story days (setting), then fall back to the phase defaults. You can also type them in by hand on the status card.
+- **Libido follows mood and state.** The base comes from the phase (heat is high, calm is normal, pregnancy and recovery are lower). Sad, anxious, angry, exhausted or ill characters are pushed down, aroused or needy ones up, and an explicit libido level stated in the story wins. The libido level is also added to the hidden prompt so the writing stays consistent.
+- **Contraception from the chat:** if the story says a condom, pills, an IUD, suppressants or sterilization applies (or that no protection is used), the setting is updated before the conception roll for that same message.
+- **Children from the roleplay:** a child born in the story is added (and named onto the baby the tracker just created, instead of duplicating it); children who already exist are added with their age, other parent and derived birth date; children past the baby-care age go straight to the older children list. Unnamed mentions of old children and duplicate names are ignored.
+- **Random start:** a new character's cycle starts on a random day instead of always day 12. Existing chats keep their current day.
+- New settings (Tracking and API): track mood/physical/libido, check every N messages, and how many story days an observed mood stays valid. Mood needs a regular check, so with the smart filter on, the analyzer now also runs every N messages even when no keyword matched.

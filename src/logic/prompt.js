@@ -42,7 +42,7 @@ function line(k) {
         if (!known) {
             out.push(`${who} is secretly ${w} weeks pregnant. Nobody in the story knows yet, including ${M(k)}; never state or hint at it outright. Subtle symptoms may show naturally (${st.symptoms.join('; ')}) and may be misread as something else. ${w >= era.confirmWeek ? `It can now be confirmed if someone checks (${prac}).` : 'It is too early for this era\'s methods to confirm it.'}`);
         } else {
-            out.push(`${who} is ${w} weeks pregnant with ${babies} (trimester ${trimester(w)}, due ${pretty(dueDate(e))}); baby size: ${st.size}. Current sensations: ${st.symptoms.join('; ')}. Baby movement: ${st.movement}; position: ${st.position}; practice contractions: ${st.braxton}; swelling: ${st.swelling}; libido: ${st.libido}; weight gain about ${st.weight}. Advice: ${st.advice}. Heat/rut does not occur while pregnant.`);
+            out.push(`${who} is ${w} weeks pregnant with ${babies} (trimester ${trimester(w)}, due ${pretty(dueDate(e))}); baby size: ${st.size}. Current sensations: ${st.symptoms.join('; ')}. Baby movement: ${st.movement}; position: ${st.position}; practice contractions: ${st.braxton}; swelling: ${st.swelling}; weight gain about ${st.weight}. Advice: ${st.advice}. Heat/rut does not occur while pregnant.`);
             if (!h.confirm.count && e.fetusCount > 1) out.push(`Secret from the characters: the true number of babies is ${e.fetusCount}. Do not reveal it before an exam confirms the count (${prac}); characters assume one.`);
             if (h.confirm.sex) out.push(`Baby sex confirmed: ${e.fetusSex.map(sexWord).join(', ')}.`);
             else if (w >= era.sexWeek) out.push('The baby\'s sex can now be learned at an exam, but has not been yet; do not state it.');
@@ -93,6 +93,10 @@ function line(k) {
         }
         if (s.tryingMode && e.trying.on) out.push(`${M(k)} and ${second} are actively trying for a baby (${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'} so far)${e.trying.cycles >= 3 ? '; longing and some anxiety about it may show' : ''}.`);
         if (e.disruption && recent(e.disruption.date, 10)) out.push(`The cycle was recently thrown off by ${D.DISRUPTIONS[e.disruption.kind].label}; the next ${nm} is delayed.`);
+    }
+    if (!(isCarrying(e) && !known)) {
+        const fl = H.feelFor(k);
+        out.push(`${M(k)}'s libido right now: ${fl.libido.toLowerCase()}${fl.observed.libido ? ' (it follows the current mood and physical state)' : ''}.`);
     }
     return out.join(' ');
 }

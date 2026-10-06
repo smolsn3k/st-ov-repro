@@ -63,6 +63,9 @@ export const DEFAULTS = {
     track: 'user',             // user | char | both
     apiProfile: '',            // '' = main API, otherwise Connection Manager profile id
     autoAnalyze: true,
+    trackFeelings: true,       // read mood, physical state and libido from the chat
+    feelInterval: 2,           // check feelings every N messages when the smart filter would skip them
+    feelDays: 2,               // story days an observed mood/physical state stays valid
     smartFilter: true,         // only call the analyzer when the text looks relevant
     analyzeDepth: 3,           // messages sent to the analyzer
     dateScanDepth: 8,          // messages scanned for a date
@@ -111,7 +114,8 @@ export const DEFAULTS = {
 };
 
 export const newEntity = () => ({
-    cycleDay: 12,
+    cycleDay: 1 + Math.floor(Math.random() * Math.max(1, S().cycleLength || 30)),   // random start day for every new character
+    feel: { mood: '', physical: '', libido: '', stamp: null },                       // mood / physical / libido picked up from the story
     pregnant: false, days: 0, conceptionDate: null, fetusCount: 1, fetusSex: [],
     egg: { stage: 'none', count: 0, laid: 0, carryDays: 0, incubDays: 0 },
     known: false,

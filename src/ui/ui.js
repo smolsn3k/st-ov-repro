@@ -117,6 +117,7 @@ function card(k) {
     if (ph.fertility > 0) top.push(`<small>Conception odds per qualifying event: <b>${Math.round(E.conceptionOdds(k) * 100)}%</b></small>`);
     if (!carrying && !e.postpartumDays) { const sy = H.phaseSymptoms(k, ph.id, 3); if (sy.length) top.push(`<small class="ovr-dim">${esc(sy.join(' · '))}</small>`); }
     if (e.postpartumDays > 0) { const st = H.postpartumStage(k); if (st) top.push(`<small class="ovr-dim">${esc(st.label)}: ${esc(st.sym.slice(0, 3).join(' · '))}</small>`); }
+    if (!(carrying && !e.known)) { const fl = H.feelFor(k); top.push(`<small>Mood: <b>${esc(fl.mood)}</b> · Physical: <b>${esc(fl.physical)}</b> · Libido: <b>${esc(fl.libido)}</b>${fl.observed.mood || fl.observed.physical || fl.observed.libido ? ' <span class="ovr-dim">(from the story)</span>' : ''}</small>`); }
     if (carrying) top.push(`<small>Known in story: <b>${e.known ? 'yes' : 'no (hidden)'}</b></small>`);
 
     const chips = [];
@@ -164,6 +165,9 @@ function card(k) {
         for (let i = 0; i < n; i++) f.push(`<label class="ovr-field"><span>${e.pregnant ? 'Baby' : 'Egg'} ${i + 1} name</span>${ep(k, `babyNames.${i}`, 'text', e.babyNames[i] || '', 'placeholder="unnamed (picked up from chat)"')}</label>`);
     }
     if (!live || e.egg.stage !== 'none') f.push(`<label class="ovr-field"><span>Nest</span><select class="text_pole" data-ent="${k}" data-path="nest.state">${Object.keys(D.NEST).map(n => `<option value="${n}" ${e.nest.state === n ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`);
+    f.push(`<label class="ovr-field"><span>Mood (from chat or manual)</span>${ep(k, 'feel.mood', 'text', e.feel.mood, 'placeholder="auto"')}</label>`);
+    f.push(`<label class="ovr-field"><span>Physical state</span>${ep(k, 'feel.physical', 'text', e.feel.physical, 'placeholder="auto"')}</label>`);
+    f.push(`<label class="ovr-field"><span>Libido</span><select class="text_pole" data-ent="${k}" data-path="feel.libido"><option value="">Auto (from mood and phase)</option>${H.LIBIDO.map(l => `<option value="${l}" ${e.feel.libido === l ? 'selected' : ''}>${l}</option>`).join('')}</select></label>`);
     const tog = [];
     if (s.tryingMode && E.canConceive(k)) tog.push(`<label class="ovr-switch"><input type="checkbox" data-ent="${k}" data-path="trying.on" ${e.trying.on ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Trying for a baby${e.trying.on ? ` (${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'})` : ''}</span></label>`);
     if (e.postpartumDays > 0) tog.push(`<label class="ovr-switch"><input type="checkbox" data-ent="${k}" data-path="postpartum.lactating" ${e.postpartum.lactating ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Lactating</span></label>`);
@@ -219,7 +223,7 @@ export function render() {
         api: `<label class="ovr-field wide"><span>Track</span><select class="text_pole" data-g="track"><option value="user" ${s.track === 'user' ? 'selected' : ''}>User only</option><option value="char" ${s.track === 'char' ? 'selected' : ''}>Bot only</option><option value="both" ${s.track === 'both' ? 'selected' : ''}>Both</option></select></label>
             <label class="ovr-field wide"><span>API profile</span><select class="text_pole" data-g="apiProfile">${profOpts}</select></label>
             ${pf.length ? '' : '<small class="ovr-dim">No Connection Manager profiles found; the main API is used.</small>'}
-            <div class="ovr-switches">${chk('autoAnalyze', 'Analyze messages for events')}${chk('smartFilter', 'Only analyze when the text looks relevant')}</div>${grid(numField('analyzeDepth', 'Messages sent to analyzer', 1, 10))}`,
+            <div class="ovr-switches">${chk('autoAnalyze', 'Analyze messages for events')}${chk('smartFilter', 'Only analyze when the text looks relevant')}${chk('trackFeelings', 'Track mood, physical state and libido from the chat')}</div>${grid(numField('analyzeDepth', 'Messages sent to analyzer', 1, 10), numField('feelInterval', 'Mood check every N messages', 1, 10), numField('feelDays', 'Mood stays valid, story days', 1, 30))}`,
         cycle: `${grid(numField('conceptionChance', 'Conception chance at peak, %', 0, 100), numField('cycleLength', 'Cycle length, days', 10, 120), numField('heatDuration', 'Heat/rut duration, days', 1, 14))}
             <small class="ovr-dim">Protection of each contraception method (how much it lowers conception chance):</small>
             ${grid(...['condom', 'pill', 'iud', 'suppressant'].map(id => `<label class="ovr-field"><span>${esc(CONTRA[id].label)}, %</span><input type="number" class="text_pole" data-prot="${id}" min="0" max="100" value="${contraProtection(id)}"></label>`))}
@@ -307,6 +311,7 @@ export function mount() {
     $(document).on('change', `${root} [data-c]`, e => { const el = e.currentTarget; setPath(C(), el.dataset.c, val(el)); saveC(); refresh(); });
     $(document).on('change', `${root} [data-ent][data-path]`, e => {
         const el = e.currentTarget; setPath(C().entities[el.dataset.ent], el.dataset.path, val(el));
+        if (/^feel\./.test(el.dataset.path)) H.touchFeel(el.dataset.ent);
         if (/^babyNames\./.test(el.dataset.path)) { const a = C().entities[el.dataset.ent].babyNames; for (let i = 0; i < a.length; i++) a[i] = a[i] || ''; }
         saveC(); refresh();
     });

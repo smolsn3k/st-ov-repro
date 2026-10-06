@@ -39,6 +39,7 @@ function cycleCard(k, hidden) {
     const c = C(), e = c.entities[k], s = S(), L = s.cycleLength, Dn = s.heatDuration;
     const rawDay = hidden ? e.cycleDay + (e.pregnant ? e.days : e.egg.carryDays) : e.cycleDay;
     const info = H.cycleInfo(k, rawDay), day = Math.min(rawDay, L), delay = Math.max(0, rawDay - L);
+    const fl = H.feelNow(k, { mood: info.mood, physical: info.physical, libidoText: info.libido });
     const nm = PHYS[c.physiology[k]].role === 'omega' ? 'heat' : 'rut';
     const badge = hidden && delay > 0 ? `Late ${delay} d` : `${day}/${L} · ${info.label}`;
     const extra = [];
@@ -53,7 +54,7 @@ function cycleCard(k, hidden) {
     if (t.result && E.phase(k)) extra.push(stat('vial', t.result === 'negative' ? 'blue' : 'pink', 'Test', esc(t.result)));
     const pct = Math.min(100, Math.round((rawDay / L) * 100));
     const body = `<div class="ovr-ib-bar" style="--zone:${(Dn / L) * 100}%"><div class="ovr-ib-bar-fill cycle" style="width:${pct}%"></div></div>
-        <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(hidden ? 'Undetermined' : info.fertility))}${stat('fire', 'pink', 'Libido', esc(info.libido))}${stat('face-smile', 'purple', 'Mood', esc(info.mood))}${stat('heart', 'blue', 'Physical', esc(info.physical))}${extra.join('')}${note(esc(info.note))}</div>`;
+        <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(hidden ? 'Undetermined' : info.fertility))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(info.note))}</div>`;
     return card(`c-${k}`, 'cycle', 'clock', `${esc(nameOf(k))} · ${roleWord(k)}`, esc(badge), 'cycle', body);
 }
 const D_CON = { condom: 'Barrier', pill: 'Hormonal', iud: 'IUD / implant', suppressant: 'Suppressants', sterile: 'Sterile' };
@@ -65,7 +66,7 @@ function pregCard(k, reveal) {
     const count = h.confirm.count || reveal ? `${e.fetusCount} ${e.fetusCount > 1 ? 'babies' : 'baby'}` : 'not confirmed';
     const sex = h.confirm.sex || reveal ? e.fetusSex.map(x => (x === 'M' ? 'boy' : 'girl')).join(', ') : 'unknown';
     const ht = healthTile(k, reveal), ds = s.infoblockDetails;
-    const second = H.secondParentName(k);
+    const second = H.secondParentName(k), fl = H.feelFor(k);
     const tiles = [
         c.date.current ? stat('clock', 'purple', 'Story time', esc(`${pretty(c.date.current)}${c.date.time ? ' ' + c.date.time : ''}`)) : '',
         e.conceptionDate ? stat('calendar-day', 'pink', 'Conceived', esc(pretty(e.conceptionDate))) : '',
@@ -74,9 +75,10 @@ function pregCard(k, reveal) {
         stat('user', 'blue', 'Other parent', esc(second)),
         stat('heart-pulse', 'green', 'Health', ht.html),
         ds ? stat('ruler', 'blue', 'Size', esc(p.size)) : '',
-        ds ? stat('face-smile', 'purple', 'Mood', esc(D.PREG_MOOD[tri - 1])) : '',
+        ds ? stat('face-smile', 'purple', 'Mood', esc(fl.mood)) : '',
+        ds ? stat('heart', 'blue', 'Physical', esc(fl.physical)) : '',
         ds ? stat('weight-scale', 'orange', 'Weight', esc(p.weight)) : '',
-        ds ? stat('fire', 'pink', 'Libido', esc(p.libido)) : '',
+        ds ? stat('fire', 'pink', 'Libido', esc(fl.libido)) : '',
         ds ? stat('hand', 'purple', 'Movement', esc(p.movement)) : '',
         ds ? stat('droplet', 'orange', 'Swelling', esc(p.swelling)) : '',
         ds ? stat('bolt', 'pink', 'Contractions', esc(p.braxton)) : '',
@@ -109,6 +111,7 @@ function eggCard(k, reveal) {
 
 // ── Postpartum / recovery card ──
 function postCard(k) {
+    const fl = H.feelFor(k);
     const e = C().entities[k], s = S(), len = H.postpartumLength(k), st = H.postpartumStage(k), inRec = e.postpartumDays <= len, ds = s.infoblockDetails;
     const idx = inRec ? Math.max(0, D.POSTPARTUM[e.postpartum.method]?.findIndex(x => x.label === st?.label) ?? 0) : 3;
     const how = e.postpartum.method === 'csection' ? 'C-section' : e.postpartum.method === 'laid' ? 'After laying' : 'Natural birth';
@@ -117,8 +120,9 @@ function postCard(k) {
         stat('bandage', 'orange', 'Delivery', esc(how)),
         stat('bottle-droplet', 'blue', 'Lactation', e.postpartum.lactating ? 'Nursing' : 'No'),
         stat('clock-rotate-left', 'purple', 'Cycle', inRec || e.postpartum.lactating ? 'Not returned' : 'Returning'),
-        ds ? stat('face-smile', 'purple', 'Mood', esc(D.POST_MOOD[Math.min(idx, 3)])) : '',
-        ds && inRec && st ? stat('heart', 'blue', 'Physical', esc(st.sym.slice(0, 2).join(', '))) : '',
+        ds ? stat('face-smile', 'purple', 'Mood', esc(fl.mood)) : '',
+        ds ? stat('fire', 'pink', 'Libido', esc(fl.libido)) : '',
+        ds ? stat('heart', 'blue', 'Physical', esc(fl.physical)) : '',
     ].filter(Boolean).join('');
     const body = `${inRec ? `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill baby" style="width:${Math.min(100, (e.postpartumDays / len) * 100)}%"></div></div>` : ''}<div class="ovr-ib-grid">${tiles}${ds && inRec && st ? note(esc(st.sym.join(' · '))) : ''}</div>`;
     return card(`r-${k}`, 'cycle', 'heart-pulse', `${esc(nameOf(k))} · Recovery`, inRec ? `Day ${e.postpartumDays}/${len}` : 'Lactating', 'cycle', body);

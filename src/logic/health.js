@@ -1,7 +1,7 @@
 // Health layer: planned complications/conditions, visits and tests, fetus confirmation, status/symptoms,
 // appearance inheritance, disruptions, trying mode, lactation/postpartum and nest handling.
 import { S, C, ERAS, PHYS, nameOf } from '../core/core.js';
-import { diffDays } from '../core/dates.js';
+import { diffDays, toDays } from '../core/dates.js';
 import * as D from '../core/data.js';
 
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
@@ -212,3 +212,52 @@ export function cycleInfo(k, dayOverride = null) {
     else { sub = 'calm'; label = 'Calm'; }
     return { day: d, length: L, sub, label, ...D.PHASE_INFO[role][sub] };
 }
+
+// ── Mood, physical state and libido (observed in the story, with phase defaults) ──
+export const LIBIDO = ['Very low', 'Low', 'Normal', 'High', 'Very high'];
+const LIB_SCORE = { 'very high': 4, 'high, waning': 3, rising: 3, 'slightly raised': 2.5, normal: 2, fading: 1.5, muted: 1, variable: 2, unchanged: 2, lowered: 1, returning: 2, increased: 3, high: 3, fluctuating: 2, low: 1, 'very low': 0, 'low, rising': 1.5, 'undetermined': 2 };
+const NEG_MOOD = /\b(sad|depress|griev|grief|mourn|hopeless|numb|anxious|anxiety|scared|afraid|fear|panic|angry|anger|furious|upset|stress|exhaust|tired|drained|lonely|hurt|miserable|ashamed|guilt|disgust|unwell|irritab|annoy|bored|overwhelm|heartbro|despair|withdrawn|worried|tearful|crying|devastat)/i;
+const HOT_MOOD = /(aroused|horny|lust|desir|needy|craving|turned on|wanton|passion|yearn|heated|frisky|burning for|wants? (?:him|her|them))/i;
+const SOFT_MOOD = /(happy|content|affection|tender|playful|flirt|relaxed|cheerful|loving|warm|giddy|smitten)/i;
+const NEG_BODY = /(ill\b|sick|fever|pain|hurt|injur|sore|nause|dizzy|headache|exhaust|weak|ache|migraine|cramp)/i;
+const HOT_BODY = /(flushed|panting|trembl|heated|feverish with|overheated|slick)/i;
+const moodMod = t => (HOT_MOOD.test(t) ? 1 : NEG_MOOD.test(t) ? -1 : SOFT_MOOD.test(t) ? 0.3 : 0);
+const bodyMod = t => (HOT_BODY.test(t) ? 0.8 : NEG_BODY.test(t) ? -1 : 0);
+
+export function feelFresh(k) {
+    const st = ent(k).feel?.stamp, cur = toDays(C().date.current);
+    if (!st || st.day == null || cur === null) return true;
+    return cur - st.day <= S().feelDays;
+}
+export const touchFeel = k => { ent(k).feel.stamp = { day: toDays(C().date.current) }; };
+const clip = (v, n = 40) => (typeof v === 'string' && v.trim() && v.trim().toLowerCase() !== 'null' ? v.trim().slice(0, n) : '');
+export function setFeel(k, { mood, physical, libido } = {}) {
+    const f = ent(k).feel; let changed = false;
+    const m = clip(mood), p = clip(physical), l = LIBIDO.find(x => x.toLowerCase() === String(libido || '').toLowerCase()) || '';
+    if (m && m !== f.mood) { f.mood = m; changed = true; if (!l) f.libido = ''; }   // new mood without a stated libido: drop the stale libido reading
+    if (p && p !== f.physical) { f.physical = p; changed = true; }
+    if (l && l !== f.libido) { f.libido = l; changed = true; }
+    if (changed) touchFeel(k);
+    return changed;
+}
+
+// Defaults for the character's current state, before anything observed in the story.
+export function baseState(k) {
+    const e = ent(k);
+    if (e.pregnant) { const p = pregStatus(k); return { mood: D.PREG_MOOD[Math.min(2, Math.floor(p.week / 14))], physical: p.symptoms[0], libidoText: p.libido }; }
+    if (e.egg.stage !== 'none') return { mood: 'Restless, nesting', physical: 'Warm, heavy', libidoText: 'low' };
+    if (e.postpartumDays > 0) { const st = postpartumStage(k); return { mood: D.POST_MOOD[Math.min(3, Math.floor(e.postpartumDays / 14))], physical: st?.sym?.[0] || 'Recovering', libidoText: 'fading' }; }
+    const info = cycleInfo(k);
+    return { mood: info.mood, physical: info.physical, libidoText: info.libido };
+}
+export function feelNow(k, base = baseState(k)) {
+    const f = ent(k).feel || {}, fresh = S().trackFeelings && feelFresh(k);
+    const obsMood = fresh && f.mood ? f.mood : '', obsBody = fresh && f.physical ? f.physical : '';
+    let score = LIB_SCORE[String(base.libidoText).toLowerCase()] ?? 2, observed = false;
+    const lv = fresh && f.libido ? LIBIDO.indexOf(f.libido) : -1;
+    if (lv >= 0) { score = lv; observed = true; }
+    else if (obsMood || obsBody) { const d = moodMod(obsMood) + bodyMod(obsBody); if (d) observed = true; score += d; }
+    score = Math.max(0, Math.min(4, score));
+    return { mood: obsMood || base.mood, physical: obsBody || base.physical, libido: LIBIDO[Math.round(score)], observed: { mood: !!obsMood, physical: !!obsBody, libido: observed } };
+}
+export const feelFor = k => feelNow(k, baseState(k));

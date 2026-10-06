@@ -1,6 +1,6 @@
 // Date detection from the active chat + optional LLM event analysis through a chosen API profile.
-import { ctx, S, C, trackedKeys, nameOf } from '../core/core.js';
-import { extractDate, extractTime, parseISO, fmt, pretty } from '../core/dates.js';
+import { ctx, S, C, trackedKeys, nameOf, CONTRA, contraLabel, hooks } from '../core/core.js';
+import { extractDate, extractTime, parseISO, fmt, pretty, addDays } from '../core/dates.js';
 import { labelOf, nowHours as nowHoursSafe } from './baby.js';
 import * as E from './engine.js';
 import * as H from './health.js';
@@ -45,7 +45,7 @@ export function refreshDate(found = detectChatDate()) {
 }
 
 const BABY_TRIGGER = /baby|babies|infant|newborn|toddler|child|\bfe(?:d|ed|eding)\b|nurs|bottle|diaper|nappy|crib|cradle|\bcr(?:y|ies|ied)\b|colic|teeth|tooth|sleep|\bnap\b|lullaby|milk|first (?:step|word|smile)|fever|sick|named?\b/i;
-const TRIGGER = /nam(?:e|ed|ing)\b|call(?:ed|ing)? (?:him|her|them|it)|trying|nest|c-?section|cesarean|surgery|stress|exhaust|\bill|travel|journey|eyes|hair|father|knot|\btie[sd]?\b|inside|fill(?:ed|s|ing)?|\bcum|came\b|seed|breed|bond|bite|birth|labou?r|deliver|born|\begg|\blay|laid|clutch|hatch|nest|test|pregnan|expect|ultrasound|midwife|healer|doctor|heat|rut\b|scanner/i;
+const TRIGGER = /\bchild|children|\bson\b|daughter|\bkids?\b|condom|protection|contracept|\bpill|nam(?:e|ed|ing)\b|call(?:ed|ing)? (?:him|her|them|it)|trying|nest|c-?section|cesarean|surgery|stress|exhaust|\bill|travel|journey|eyes|hair|father|knot|\btie[sd]?\b|inside|fill(?:ed|s|ing)?|\bcum|came\b|seed|breed|bond|bite|birth|labou?r|deliver|born|\begg|\blay|laid|clutch|hatch|nest|test|pregnan|expect|ultrasound|midwife|healer|doctor|heat|rut\b|scanner/i;
 
 export function profiles() {
     const p = ctx().extensionSettings?.connectionManager?.profiles;
@@ -85,9 +85,15 @@ function buildMessages(idx) {
         ' "trying": {"user": true|false|null, "char": true|false|null},  // true if the story says they have begun actively trying for a baby, false if they stopped',
         ' "disruption": {"user": "stress|illness|starvation|travel|overwork|null", "char": "..."},  // a clear event that would disturb the heat/rut cycle',
         ' "nest": {"user": "none|building|ready|disturbed|null", "char": "..."},  // state of this character\'s nest, if the story shows it',
-        ' "looks": {"user": "short appearance line like \'brown eyes, black hair\' if the newest message states it, else null", "char": "..."}}',
+        ' "looks": {"user": "short appearance line like \'brown eyes, black hair\' if the newest message states it, else null", "char": "..."},',
+        ' "mood": {"user": "1-3 words for their emotional state in the newest message, or null", "char": "..."},',
+        ' "physical": {"user": "short phrase for their physical state (tired, aching, flushed, ill, energetic...) or null", "char": "..."},',
+        ' "libido": {"user": "very low|low|normal|high|very high|null", "char": "..."},  // sexual desire shown or implied right now; sadness, grief, fear, anger, illness or exhaustion usually mean low; arousal means high',
+        ' "contraception": {"user": "none|condom|pill|iud|suppressant|sterile|null", "char": "..."},  // the method that applies to conception for THIS character (their own method, or their partner\'s such as a condom); \'none\' only if the story says no protection is used; null if not mentioned',
+        ' "children": [ {"owner": "user|char", "name": "string", "sex": "M|F|null", "age_days": integer or null (newborn 0, 1 year 365, 3 years 1095), "other_parent": "name or null", "born_now": bool} ],  // every child of user/char that is born in the newest message OR is mentioned as already existing; owner = the parent who bore or hatched the child (the mother/carrier if unclear); [] if none',
         ...babyBlock,
-        'Use false when unsure. Plans, hypotheticals, memories and fantasies are false.',
+        '}',
+        'Use false when unsure. Plans, hypotheticals, memories and fantasies are false. Return valid JSON.',
         '', '--- EXCERPT ---', recent.join('\n\n'),
     ].join('\n');
     return { system, user };
@@ -116,7 +122,8 @@ export async function analyze(idx) {
     if (!s.autoAnalyze) return null;
     const chat = ctx().chat || [];
     const txt = clean(chat[idx]?.mes);
-    if (s.smartFilter && !TRIGGER.test(txt) && !(C().family.babies.length && BABY_TRIGGER.test(txt))) return null;
+    const feelTurn = s.trackFeelings && idx % Math.max(1, Number(s.feelInterval) || 1) === 0;   // mood and physical state need regular checks, not just keyword hits
+    if (s.smartFilter && !feelTurn && !TRIGGER.test(txt) && !(C().family.babies.length && BABY_TRIGGER.test(txt))) return null;
     const { system, user } = buildMessages(idx);
     try { return parse(await call(system, user)); }
     catch (e) {
@@ -141,8 +148,15 @@ export function applyResult(r) {
     }
     applyBabyUpdates(r.baby_updates, events);
     for (const k of ['user', 'char']) applyLooks(k, r.looks?.[k]);
+    const keepBirthDialog = hooks.onBirth, pending = [], justBorn = { user: [], char: [] };
+    hooks.onBirth = (ids, k2) => { pending.push([ids, k2]); };     // show the birth dialog after names from the story are applied
+    try {
     for (const k of trackedKeys()) {
         const e = c.entities[k], n = nameOf(k);
+        if (typeof r.contraception?.[k] === 'string' && CONTRA[r.contraception[k]] && c.contraception[k] !== r.contraception[k]) {
+            c.contraception[k] = r.contraception[k]; events.push(`${n}: protection ${contraLabel(r.contraception[k])}`);
+        }
+        if (s.trackFeelings && H.setFeel(k, { mood: r.mood?.[k], physical: r.physical?.[k], libido: r.libido?.[k] })) events.push(`${n}: ${[e.feel.mood, e.feel.physical].filter(Boolean).join(', ')}`);
         if (s.tryingMode && typeof r.trying?.[k] === 'boolean' && E.canConceive(k) && e.trying.on !== r.trying[k]) {
             e.trying.on = r.trying[k]; if (!e.trying.on) e.trying.cycles = 0; events.push(`${n} ${e.trying.on ? 'started' : 'stopped'} trying for a baby`);
         }
@@ -158,12 +172,43 @@ export function applyResult(r) {
             const odds = E.conceptionOdds(k);
             if (E.conceive(k)) events.push(`${n} conceived (${Math.round(odds * 100)}% odds)`);
         }
-        if (b(r.birth, k)) { const m = r.birth_method?.[k] === 'csection' ? 'csection' : (r.birth_method?.[k] === 'natural' ? 'natural' : undefined); if (E.giveBirth(k, m)) events.push(`${n} gave birth${m === 'csection' ? ' (C-section)' : ''}`); }
+        if (b(r.birth, k)) { const m = r.birth_method?.[k] === 'csection' ? 'csection' : (r.birth_method?.[k] === 'natural' ? 'natural' : undefined); const ids = E.giveBirth(k, m); if (ids) { justBorn[k] = Array.isArray(ids) ? ids : []; events.push(`${n} gave birth${m === 'csection' ? ' (C-section)' : ''}`); } }
         if (b(r.laid_eggs, k) && E.layEggs(k)) events.push(`${n} laid eggs`);
-        if (b(r.hatched, k) && E.hatchEggs(k)) events.push(`${n} eggs hatched`);
+        if (b(r.hatched, k)) { const ids = E.hatchEggs(k); if (ids) { justBorn[k] = Array.isArray(ids) ? ids : []; events.push(`${n} eggs hatched`); } }
         if (b(r.discovered, k) && E.isCarrying(e) && !e.known) { e.known = true; events.push(`${n}'s condition was discovered`); }
     }
+    applyChildren(r.children, justBorn, events);
+    } finally {
+        hooks.onBirth = keepBirthDialog;
+        if (keepBirthDialog) for (const [ids, k2] of pending) keepBirthDialog(ids, k2);
+    }
     return events;
+}
+
+// Children found in the story: newborns (named onto babies the tracker just created) and children who already exist.
+function applyChildren(list, justBorn, events) {
+    if (!Array.isArray(list)) return;
+    const c = C(), fam = c.family, s = S();
+    for (const it of list.slice(0, 6)) {
+        if (!it || typeof it !== 'object' || !['user', 'char'].includes(it.owner)) continue;
+        const name = typeof it.name === 'string' ? it.name.trim().slice(0, 40) : '';
+        const sex = it.sex === 'M' || it.sex === 'F' ? it.sex : null;
+        const age = Number.isFinite(Number(it.age_days)) && it.age_days !== null ? Math.max(0, Math.round(Number(it.age_days))) : null;
+        const other = typeof it.other_parent === 'string' && it.other_parent.trim() && it.other_parent.trim().toLowerCase() !== 'null' ? it.other_parent.trim().slice(0, 40) : '';
+        const key = name.toLowerCase();
+        if (key && (fam.babies.some(b => (b.name || '').toLowerCase() === key) || fam.grown.some(g => (g.name || '').toLowerCase() === key))) continue;
+        const fresh = fam.babies.find(b => justBorn[it.owner].includes(b.id) && !b.name);
+        if (fresh && (it.born_now === true || (age !== null && age <= 3))) { if (name) { fresh.name = name; events.push(`Baby named ${name}`); } if (sex) fresh.sex = sex; continue; }
+        if (!name && it.born_now !== true) continue;                      // an unnamed mention of an old child is not enough to create one
+        if (age !== null && age >= s.babyMaxAgeDays) {                   // already grown: goes straight to the older children list
+            fam.grown.push({ id: fam.nextId++, name, sex: sex || 'F', parent: it.owner, age, personality: [], appearance: [], otherParent: other || H.secondParentName(it.owner), milestones: 0 });
+            events.push(`Older child added: ${name || 'unnamed'}`); continue;
+        }
+        const born = age !== null && c.date.current ? addDays(c.date.current, -age) : null;
+        const b = E.addManualChild({ name, sex: sex || 'F', parent: it.owner, otherParent: other, born, via: 'birth' });
+        if (age !== null) b.age = age;
+        events.push(`Child added from the story: ${name || 'unnamed baby'}`);
+    }
 }
 
 const SLEEP = ['asleep', 'awake', 'drowsy', 'napping'], FEED = ['breast', 'formula', 'mixed', 'solids'], HEALTH = ['normal', 'fever', 'cold', 'sick', 'injured', 'recovering'];
