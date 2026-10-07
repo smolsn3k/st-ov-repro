@@ -36,7 +36,7 @@ export function phase(k) {
     }
     const r = role(k), name = r === 'omega' ? 'Heat' : 'Rut';
     const d = e.cycleDay, Dn = s.heatDuration, L = s.cycleLength;
-    const suppressed = c.contraception[k] === 'suppressant';
+    const suppressed = !!c.suppressants?.[k];
     if (d > L) return { id: 'late', label: `${name} late by ${d - L} d`, fertility: 0.03 };
     if (d <= Dn) {
         if (suppressed) return { id: 'suppressed', label: `${name} (suppressed), cycle ${d}/${L}`, fertility: 0.05 };
@@ -48,9 +48,12 @@ export function phase(k) {
 
 export function conceptionOdds(k) {
     const p = phase(k), e = ent(k);
+    if (!p.fertility) return 0;                                       // pregnant, carrying eggs or recovering
+    const inHeat = p.id === 'heat' || p.id === 'rut';                // a suppressed or late heat/rut is not a heat/rut
     let mult = contraMult(C().contraception[k]);
     if (S().tryingMode && e.trying?.on && mult > 0) mult = 1;     // actively trying: protection set aside (sterile stays 0)
-    return Math.max(0, Math.min(1, (S().conceptionChance / 100) * p.fertility * mult * H.tryingMult(k)));
+    const base = (inHeat ? S().conceptionHeat : S().conceptionOutside) / 100;
+    return Math.max(0, Math.min(1, base * mult * H.tryingMult(k)));
 }
 
 function updateKnown(k) {

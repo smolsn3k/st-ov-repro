@@ -92,6 +92,7 @@ function line(k) {
         const sym = H.phaseSymptoms(k, info.pool, 3);
         out.push(`${who} is ${info.story}. How they come across: ${info.act}.${sym.length ? ` Typical sensations right now: ${sym.join('; ')}.` : ''} Others around them notice: ${info.others}.`);
         if (info.sub === 'pre') out.push(`They expect the ${nm} within about ${plural(fc.expectedIn)}.`);
+        if (c.suppressants[k] && info.sub !== 'suppressed') out.push(`${M(k)} takes ${nm} suppressants: the ${nm} is muted or does not come at all. This is not contraception.`);
         const sb = e.setback;
         if (sb) {
             const cause = H.setbackLabel(sb), late = fc.late;

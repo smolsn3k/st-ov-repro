@@ -109,7 +109,8 @@ function buildMessages(idx) {
         ' "mood": {"user": "1-3 words for their emotional state in the newest message, or null", "char": "..."},',
         ' "physical": {"user": "short phrase for their physical state (tired, aching, flushed, ill, energetic...) or null", "char": "..."},',
         ' "libido": {"user": "very low|low|normal|high|very high|null", "char": "..."},  // sexual desire shown or implied right now; sadness, grief, fear, anger, illness or exhaustion usually mean low; arousal means high',
-        ' "contraception": {"user": "none|condom|pill|iud|suppressant|sterile|null", "char": "..."},  // the method that applies to conception for THIS character (their own method, or their partner\'s such as a condom); \'none\' only if the story says no protection is used; null if not mentioned',
+        ' "contraception": {"user": "none|condom|pill|iud|sterile|null", "char": "..."},  // the contraception (prevents conception) that applies to THIS character (their own method, or their partner\'s such as a condom); \'none\' only if the story says no protection is used; null if not mentioned',
+        ' "suppressants": {"user": true|false|null, "char": true|false|null},  // heat/rut suppressants (they stop the heat/rut, they are NOT contraception): true if taken now, false if stopped, null if not mentioned',
         ' "children": [ {"owner": "user|char", "name": "string", "sex": "M|F|null", "age_days": integer or null (newborn 0, 1 year 365, 3 years 1095), "other_parent": "name or null", "born_now": bool} ],  // every child of user/char that is born in the newest message OR is mentioned as already existing; owner = the parent who bore or hatched the child (the mother/carrier if unclear); [] if none',
         ...babyBlock,
         '}',
@@ -195,9 +196,11 @@ export function applyResult(r, opts = {}) {
     try {
     for (const k of trackedKeys()) {
         const e = c.entities[k], n = nameOf(k);
-        if (typeof r.contraception?.[k] === 'string' && CONTRA[r.contraception[k]] && c.contraception[k] !== r.contraception[k]) {
+        if (r.contraception?.[k] === 'suppressant') { if (!c.suppressants[k]) { c.suppressants[k] = true; events.push(`${n}: heat/rut suppressants on`); } }   // older wording
+        else if (typeof r.contraception?.[k] === 'string' && CONTRA[r.contraception[k]] && c.contraception[k] !== r.contraception[k]) {
             c.contraception[k] = r.contraception[k]; events.push(`${n}: protection ${contraLabel(r.contraception[k])}`);
         }
+        if (typeof r.suppressants?.[k] === 'boolean' && c.suppressants[k] !== r.suppressants[k]) { c.suppressants[k] = r.suppressants[k]; events.push(`${n}: heat/rut suppressants ${r.suppressants[k] ? 'on' : 'off'}`); }
         if (s.trackFeelings && H.setFeel(k, { mood: r.mood?.[k], physical: r.physical?.[k], libido: r.libido?.[k] })) events.push(`${n}: ${[e.feel.mood, e.feel.physical].filter(Boolean).join(', ')}`);
         if (s.tryingMode && typeof r.trying?.[k] === 'boolean' && E.canConceive(k) && e.trying.on !== r.trying[k]) {
             e.trying.on = r.trying[k]; if (!e.trying.on) e.trying.cycles = 0; events.push(`${n} ${e.trying.on ? 'started' : 'stopped'} trying for a baby`);

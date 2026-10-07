@@ -11,7 +11,7 @@ import * as E from './engine.js';
 import * as H from './health.js';
 import { DISRUPTIONS } from '../core/data.js';
 
-const EVENT_NAMES = ['CONCEPTION_CHECK', 'PROTECTION', 'CYCLE_SETBACK', 'SETBACK_KNOWN', 'CYCLE_DAY', 'PREGNANCY_KNOWN', 'TEST', 'EXAM', 'SEX_REVEAL', 'MISCARRIAGE', 'BIRTH', 'LAID_EGGS', 'HATCHED'];
+const EVENT_NAMES = ['CONCEPTION_CHECK', 'PROTECTION', 'SUPPRESSANTS', 'CYCLE_SETBACK', 'SETBACK_KNOWN', 'CYCLE_DAY', 'PREGNANCY_KNOWN', 'TEST', 'EXAM', 'SEX_REVEAL', 'MISCARRIAGE', 'BIRTH', 'LAID_EGGS', 'HATCHED'];
 const ORDER = Object.fromEntries(EVENT_NAMES.map((n, i) => [n, i]));   // the order above is the order they are applied in (protection before conception, birth after discovery...)
 
 // Reasoning models sometimes rehearse the tags inside <think>. Closed blocks and a dangling block in the middle are cut;
@@ -102,7 +102,13 @@ export function applyTags(tags, acc) {
         switch (t.name) {
             case 'PROTECTION': {
                 const id = String(t.arg || '').toLowerCase();
-                if (CONTRA[id] && c.contraception[k] !== id) { c.contraception[k] = id; ev.push(`${n}: protection ${contraLabel(id)}`); }
+                if (id === 'suppressant') { if (!c.suppressants[k]) { c.suppressants[k] = true; ev.push(`${n}: heat/rut suppressants on`); } }   // older wording: suppressants are not contraception
+                else if (CONTRA[id] && c.contraception[k] !== id) { c.contraception[k] = id; ev.push(`${n}: protection ${contraLabel(id)}`); }
+                break;
+            }
+            case 'SUPPRESSANTS': {
+                const on = !/^(off|stop|stopped|no|false)$/i.test(String(t.arg || 'on'));
+                if (c.suppressants[k] !== on) { c.suppressants[k] = on; ev.push(`${n}: heat/rut suppressants ${on ? 'on' : 'off'}`); }
                 break;
             }
             case 'CYCLE_SETBACK': {
@@ -193,7 +199,8 @@ export function tagInstructions() {
         const tag = (name, arg) => `[${name}${k === 'char' ? ':CHAR' : ''}${arg ? ':' + arg : ''}]`;
         const it = [];
         if (E.canConceive(k)) it.push(`${tag('CONCEPTION_CHECK')} semen is released inside them (the tracker applies their protection itself)`);
-        if (!carry) it.push(`${tag('PROTECTION', 'condom')} when the story states or changes their protection (none|condom|pill|iud|suppressant|sterile)`);
+        if (!carry) it.push(`${tag('PROTECTION', 'condom')} when the story states or changes their contraception, which prevents conception (none|condom|pill|iud|sterile)`);
+        if (!carry && e.postpartumDays === 0) it.push(`${tag('SUPPRESSANTS', 'on')} when they start taking heat/rut suppressants, which stop the heat/rut itself and are not contraception (${tag('SUPPRESSANTS', 'off')} when they stop)`);
         if (!carry && e.postpartumDays === 0) {
             it.push(`${tag('CYCLE_DAY', '1')} a heat or rut clearly begins`);
             if (s.disruptionsEnabled) it.push(`${tag('CYCLE_SETBACK', 'stress')} something in the story clearly throws their cycle off (stress|illness|starvation|travel|overwork), once, when it happens`);

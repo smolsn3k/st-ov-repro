@@ -50,8 +50,10 @@ function cycleCard(k, hidden) {
         else extra.push(stat('calendar-day', 'purple', `Next ${nm}`, `in ${fc.visible ? fc.actualIn : fc.expectedIn} d${fc.visible && fc.actualIn !== fc.expectedIn ? ' (delayed)' : ''}`));
         if (sb && !sb.resolved) extra.push(stat('triangle-exclamation', 'orange', 'Setback', esc(sb.known || s.infoblockShowHidden ? `${cause}, +${sb.shift} d${sb.known ? '' : ' (unknown to them)'}` : 'Cause unknown to them'), true));
         else if (sb?.resolved) extra.push(stat('circle-check', 'green', 'Setback over', esc(`${Nm} came ${sb.used} d late${cause && (sb.known || s.infoblockShowHidden) ? ` (${cause})` : ''}`), true));
-        const con = c.contraception[k];
-        if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Protection', esc(`${D_CON[con] || con} ${contraProtection(con)}%`)));
+        const con = c.contraception[k], odds = E.conceptionOdds(k), inHeatNow = info.sub.startsWith('heat_') || info.sub.startsWith('rut_');
+        extra.push(stat('seedling', 'green', 'Conception', esc(`${+(odds * 100).toFixed(1)}%${inHeatNow ? ' (in ' + nm + ')' : ''}`)));
+        if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Contraception', esc(`${D_CON[con] || con} ${contraProtection(con)}%`)));
+        if (c.suppressants[k]) extra.push(stat('pills', 'blue', 'Suppressants', 'On'));
         if (e.trying?.on && s.tryingMode) extra.push(stat('bullseye', 'pink', 'Trying', `${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'}`));
     } else if (delay > 0) extra.push(stat('calendar-xmark', 'orange', 'Delay', `${delay} d`));
     const t = e.health.test;
@@ -62,7 +64,7 @@ function cycleCard(k, hidden) {
         <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(hidden ? 'Undetermined' : info.fertility))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(lateNote || info.note))}</div>`;
     return card(`c-${k}`, 'cycle', 'clock', `${esc(nameOf(k))} · ${roleWord(k)}`, esc(badge), 'cycle', body);
 }
-const D_CON = { condom: 'Barrier', pill: 'Hormonal', iud: 'IUD / implant', suppressant: 'Suppressants', sterile: 'Sterile' };
+const D_CON = { condom: 'Barrier', pill: 'Hormonal', iud: 'IUD / implant', sterile: 'Sterile' };
 
 // ── Pregnancy card ──
 function pregCard(k, reveal) {

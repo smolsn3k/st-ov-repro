@@ -234,7 +234,7 @@ export function cycleInfo(k, dayOverride = null) {
     if (d > L) return fin('delayed', 'Late');
     let sub, label;
     if (d <= Dn) {
-        if (c.contraception[k] === 'suppressant') { sub = 'suppressed'; label = 'Suppressed'; }
+        if (c.suppressants?.[k]) { sub = 'suppressed'; label = 'Suppressed'; }
         else { const p = Dn > 1 ? (d - 1) / (Dn - 1) : 0.5; sub = `${nm}_${p < 0.34 ? 'early' : p < 0.67 ? 'peak' : 'late'}`; label = cap(nm); }
     } else if (d > L - 3) { sub = 'pre'; label = `Pre-${nm}`; }
     else if (d <= Dn + 3) { sub = 'post'; label = `Post-${nm}`; }

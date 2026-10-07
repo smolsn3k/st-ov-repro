@@ -44,7 +44,6 @@ export const CONTRA = {
     condom: { label: 'Condom / barrier', prot: 85 },
     pill: { label: 'Hormonal (pills, patch, injection)', prot: 95 },
     iud: { label: 'IUD / implant', prot: 98 },
-    suppressant: { label: 'Heat/rut suppressants', prot: 70 },
     sterile: { label: 'Sterilized / infertile', prot: 100 },
 };
 // Protection percentage per method: editable in settings (none is always 0, sterile always 100).
@@ -75,7 +74,8 @@ export const DEFAULTS = {
     injectDepth: 1,
     cycleLength: 30,           // days from one heat/rut start to the next
     heatDuration: 5,
-    conceptionChance: 40,      // % at peak fertility with no protection
+    conceptionHeat: 40,        // % per qualifying event during a heat/rut, no protection
+    conceptionOutside: 2,      // % per qualifying event outside a heat/rut (suppressed or late heats count as outside), no protection
     termWeeks: 40,
     twinsChance: 3,            // %
     tripletsChance: 0.3,       // %
@@ -90,7 +90,7 @@ export const DEFAULTS = {
     complicationsEnabled: true, complicationChance: 100,   // chance multiplier, %
     fetalDiseasesEnabled: true, fetalDiseaseChance: 4,     // % per pregnancy
     doctorCooldown: 3,         // story days between visits
-    protection: { condom: 85, pill: 95, iud: 98, suppressant: 70 },   // % protection per method
+    protection: { condom: 85, pill: 95, iud: 98 },   // % protection per contraception method
     popupOpacity: 95,          // % opacity of the wand popup background
     infoblockOpacity: 100,     // % of the theme's own background tint for the chat infoblock
     accentSource: 'quote',     // quote | em | body | custom : which theme color drives the accent
@@ -138,7 +138,8 @@ export const newEntity = () => ({
 export const CHAT_DEFAULTS = () => ({
     physiology: { user: 'm-omega', char: 'm-alpha' },
     repro: { user: 'live', char: 'live' },          // live | oviposition
-    contraception: { user: 'none', char: 'none' },
+    contraception: { user: 'none', char: 'none' },   // none | condom | pill | iud | sterile : prevents conception
+    suppressants: { user: false, char: false },       // heat/rut suppressants: stop the heat/rut itself (separate from contraception)
     reveal: { era: 'modern', custom: '', practitioner: '' },
     // current = day counter (integer). text = the date exactly as written; textDay = counter when that text was set.
     // cal: none (no date yet) | iso (real calendar, counter follows the date) | free (custom text, counter moves by days only)
@@ -162,6 +163,7 @@ export function S() {
     const es = ctx().extensionSettings;
     if (!es[NAME]) es[NAME] = {};
     const legacy = es[NAME].schema === undefined && Object.keys(es[NAME]).length > 0;
+    if (es[NAME].conceptionHeat === undefined && Number.isFinite(es[NAME].conceptionChance)) es[NAME].conceptionHeat = es[NAME].conceptionChance;   // the old single chance becomes the heat/rut chance
     fill(es[NAME], DEFAULTS);
     if (legacy) {   // v1.0 saved settings: analyzer mood check was every 2 messages; the new default is lower-frequency
         if (es[NAME].feelInterval === 2) es[NAME].feelInterval = 6;
@@ -180,6 +182,9 @@ export function newBaby(fam, props) {
 
 // v1.0.0 stored children per parent; they now live in the shared family list.
 function migrate(d) {
+    for (const k of ['user', 'char']) {          // suppressants used to be one of the contraception choices
+        if (d.contraception?.[k] === 'suppressant') { d.contraception[k] = 'none'; (d.suppressants ||= {})[k] = true; }
+    }
     const dt = d.date;
     if (typeof dt.current === 'string') {      // v1.0 stored ISO strings; the story day is now a counter
         const z = toDays(dt.current);
