@@ -1,4 +1,4 @@
-# Omegaverse Reproduction (SillyTavern extension) v1.9
+# Omegaverse Reproduction (SillyTavern extension) v1.10
 
 Heat/rut cycles, conception, pregnancy, oviposition, postpartum with lactation, baby care, family tree. No menstruation. English only.
 
@@ -59,7 +59,7 @@ index.js            entry point (must stay at the root)
 manifest.json       (must stay at the root)
 style.css           (must stay at the root)
 src/core/           core.js (settings, state), dates.js, data.js (content pools)
-src/logic/          engine.js, health.js, baby.js, analyze.js, prompt.js
+src/logic/          engine.js, health.js, baby.js, analyze.js, tags.js, pipeline.js, prompt.js
 src/ui/             ui.js (panel, popup, wand entry), infoblock.js
 ```
 
@@ -94,3 +94,31 @@ The infoblock now follows the layout of delidgi's: one compact "Reproduction" ba
 - **Children from the roleplay:** a child born in the story is added (and named onto the baby the tracker just created, instead of duplicating it); children who already exist are added with their age, other parent and derived birth date; children past the baby-care age go straight to the older children list. Unnamed mentions of old children and duplicate names are ignored.
 - **Random start:** a new character's cycle starts on a random day instead of always day 12. Existing chats keep their current day.
 - New settings (Tracking and API): track mood/physical/libido, check every N messages, and how many story days an observed mood stays valid. Mood needs a regular check, so with the smart filter on, the analyzer now also runs every N messages even when no keyword matched.
+
+## v1.10 changes (tags, free-form dates)
+
+### How to detect (Global settings, Tracking and API)
+Three ways to read the story, modeled on delidgi/Pregnancy-and-menstruation for the tag mode:
+- **Tags only.** No extra API calls at all. A short instruction is added to the main prompt (about 300 tokens for one tracked character, about 420 for two) and the roleplay model ends each reply with hidden HTML comments that are read locally. It costs a few prompt tokens and only works if the model follows the instruction.
+- **Analyzer only.** The previous behavior: a separate model call reads the latest messages. Works with any roleplay model, but each run is an API request.
+- **Both** (default). Tags cover date, mood/physical/libido and the common events for free. The analyzer only runs for things tags do not carry (children and names, visits, nests, trying, appearance) and as a backup: its keyword list is narrower than in Analyzer mode, and the mood check only fills in when a reply came without a status tag.
+
+**Analyze now** (same section) runs the analyzer once on the latest message whatever the mode. It leaves the date alone and does not re-roll a conception that was already rolled for that message.
+The analyzer's mood interval default went from 2 to 6 messages (existing settings that still had 2 are moved to 6). Messages scanned for a date or tags: 10.
+
+### The tags
+Tags only count inside `<!-- ... -->` comments, so the model writing a tag name in prose does nothing. Tags inside `<think>` blocks are ignored. Events are read only from the message being processed (a swipe rolls the earlier result back first), and the tag list in the prompt follows the current state (no BIRTH tag while nobody is pregnant, and so on).
+- Every reply: `[RP_DATE:...]` and `[RP_STATUS:{...}]` (root = {{user}}, `partner` = {{char}}; mood, physical, libido).
+- Only when whole days pass: `[RP_ELAPSED:N]`.
+- One-time events (add `:CHAR` after the name for {{char}}, e.g. `[BIRTH:CHAR]`): `[CONCEPTION_CHECK]`, `[PROTECTION:condom]`, `[CYCLE_DAY:1]`, `[PREGNANCY_KNOWN]`, `[TEST]`, `[EXAM]`, `[SEX_REVEAL]`, `[MISCARRIAGE]`, `[BIRTH]` / `[BIRTH:CSECTION]`, `[LAID_EGGS]`, `[HATCHED]`, and `[BABY_TRAITS:{...}]` (name, sex, appearance of the children born in that reply).
+- A conception check rolled from a tag is not rolled again by the analyzer for the same message.
+
+### Free-form story date
+The date is a text field: type or let the model write anything (`12 May`, `3rd of Harvestmoon`, `Day 14`, `4 May 1203`). The display shows the text as written. Internally the tracker keeps a day counter, so ages, due dates, recovery and feeding times keep working.
+- **A real calendar date** (with or without a year): time moves forward automatically. Without a year, the next year is used when the date wraps (30 Dec then 2 Jan is +3 days); a step of a few days backwards is treated as a flashback.
+- **`Day N`:** sets the day counter directly.
+- **Anything else (a custom fantasy calendar):** kept as text and cannot be computed, so time moves from `[RP_ELAPSED:N]` in tag mode, from "days passed" read by the analyzer, or from the **+1 / +7 / +30 day** buttons. If the counter has moved since the text was written, it is shown as `3rd of Harvestmoon (+3 d)`.
+- With a free-text calendar, other dates (due date, conception, last visit) are shown relative to now ("in 120 days", "5 days ago") because there is no calendar to turn them into names.
+- Conception date (manual pregnancy) and birth date (manual child) are now text fields too: blank or `today`, `10 days ago`, `3 weeks ago`, or a date your story uses.
+- Existing chats are converted automatically; dates stay as they were. Switching one chat between a real calendar and a free-text one in the middle of a story shifts the counter, so stored dates from before the switch may read oddly.
+
