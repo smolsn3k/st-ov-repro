@@ -6,6 +6,8 @@ export const SYMPTOMS = {
     rut: ['restless, coiled energy', 'sharpened sense of smell and territorial instincts', 'an urge to protect and provide', 'short temper and low patience', 'intense focus on a mate\'s scent', 'raised body temperature', 'trouble sleeping, pacing', 'strong appetite and aggression held in check', 'possessive impulses', 'heavy, hot restlessness that is hard to ignore'],
     pre: ['an itchy restlessness', 'warmth creeping in and a heightened scent awareness', 'clumsiness and distraction', 'mild irritability', 'craving closeness and comfort', 'light headaches and tiredness'],
     suppressed: ['muted, faint echoes of the usual symptoms', 'dulled scent and mild fatigue', 'occasional breakthrough warmth', 'a flat mood from the medication'],
+    post: ['aching muscles and a deep tiredness', 'ravenous hunger and thirst', 'drowsiness and a need for long sleep', 'a soft, tender mood', 'faint warmth that is fading', 'wanting quiet and gentle contact'],
+    late: ['uneasy waiting and counting days', 'tender, slightly bloated feeling', 'mood swings between worry and denial', 'restlessness without the usual build-up', 'a scent that feels off or flat', 'trouble settling, light sleep'],
     quiet: ['steady energy and a calm mood', 'a normal appetite', 'stable temperature and scent', 'ordinary day-to-day sensations'],
 };
 
@@ -171,3 +173,26 @@ export const PHASE_INFO = {
 };
 export const PREG_MOOD = ['Moody, tired', 'Calmer, more energetic', 'Anxious, impatient, nesting'];
 export const POST_MOOD = ['Overwhelmed, tearful', 'Emotional, bonding', 'Tired but settling', 'Settling into routine'];
+
+// How a character acts and is perceived in each phase ({nm} = heat or rut). Used by the hidden prompt.
+export const PHASE_ACT = {
+    omega: {
+        heat_early: { story: 'at the start of a heat', act: 'feels it building: flushed, restless and over-warm; tries to keep composure but keeps seeking closeness, cool surfaces or privacy; may admit what is happening or hide it badly', others: 'a sweet, strengthening scent that alphas nearby begin to notice' },
+        heat_peak: { story: 'in the peak of a heat', act: 'barely functional: hazy, desperate for closeness, composure gone, unable to focus on anything else; needs help, water and a safe nest', others: 'an overwhelming scent; alphas nearby are strongly affected, protective or possessive, and the state is impossible to ignore' },
+        heat_late: { story: 'in the tail end of a heat', act: 'tired and clingy, hot in waves, wants comfort, water and food, drifts in and out of lucidity', others: 'the scent is still strong but softening; people around feel protective and tender' },
+        post: { story: 'just past a heat (post-heat)', act: 'drained, hungry, sleepy and sore; wants quiet, warmth, food and gentle contact; emotionally soft and a little vulnerable or embarrassed', others: 'the scent has faded to a calm, content trace; people close to them tend to fuss and look after them' },
+        calm: { story: 'between heats', act: 'steady and in control, behaves normally with no heat symptoms', others: 'nothing unusual in their scent' },
+        pre: { story: 'in the days before a heat (pre-heat)', act: 'senses it coming: restless, warm, scent-aware, with nesting urges, irritable or clingy; thinks about preparing (suppressants, privacy, a safe place) and may avoid crowds or seek a trusted alpha', others: 'a faint, changing scent; attentive alphas may notice before the omega admits anything' },
+        suppressed: { story: 'on heat suppressants', act: 'dulled and muted: only faint echoes of a heat, some tiredness and a flat mood, occasional breakthrough warmth', others: 'their scent is muted and hard to read' },
+    },
+    alpha: {
+        rut_early: { story: 'at the start of a rut', act: 'edgy and alert: heat under the skin, sharpening scent, short fuse and restless energy; may withdraw to avoid trouble or hover near a mate', others: 'a sharpening, musky scent; omegas nearby feel the shift' },
+        rut_peak: { story: 'in the peak of a rut', act: 'consumed by drive: possessive, protective, territorial and single-minded; hard to reason with; needs space or a mate', others: 'an intense scent that omegas and betas nearby cannot miss' },
+        rut_late: { story: 'in the tail end of a rut', act: 'worn out and short-tempered, still hot in waves, hungry and aching, slowly calming down', others: 'the scent is easing and the tension around them loosens' },
+        post: { story: 'just past a rut (post-rut)', act: 'drained, hungry and sleepy; calm again and a little sheepish; needs food, rest and quiet', others: 'the scent has settled and people can relax around them' },
+        calm: { story: 'between ruts', act: 'calm, steady and in control', others: 'nothing unusual in their scent' },
+        pre: { story: 'in the days before a rut (pre-rut)', act: 'edgy and restless: warmth, heightened scent, shorter patience and growing possessiveness; looks for a place to ride it out or stays close to a mate', others: 'a faint, rising musk; omegas near them may notice the change' },
+        suppressed: { story: 'on rut suppressants', act: 'dulled and muted: only faint echoes of a rut, tiredness and a flat mood', others: 'their scent is muted and hard to read' },
+    },
+    delayed: { story: 'overdue: the {nm} has not come when expected', act: 'uneasy: counts the days and cannot explain it; mood swings between worry and denial; thoughts turn to possible causes (stress, illness, medication, pregnancy)', others: 'people who know their rhythm notice the missing change and may ask about it' },
+};

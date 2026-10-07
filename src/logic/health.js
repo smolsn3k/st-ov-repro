@@ -68,6 +68,8 @@ export function tick(k) {
         const w = weeksOf(e);
         for (const c of h.complications) if (!c.active && !c.resolved && w >= c.week) { c.active = true; log(k, `Complication began: ${D.COMPLICATIONS.find(x => x.id === c.id)?.label}`); }
     }
+    const sb = e.setback;   // a resolved setback stays visible for a few story days
+    if (sb?.resolved && sb.resolvedDate && C().date.current) { const gone = diffDays(sb.resolvedDate, C().date.current); if (gone !== null && gone > 10) e.setback = null; }
     if (e.egg.stage !== 'none') {
         for (const c of h.eggPlanned) {
             const atStage = c.stage === 'gravid' ? ['gravid', 'laying_due'].includes(e.egg.stage) && e.egg.carryDays >= c.day : e.egg.stage === 'laying_due';
@@ -172,16 +174,38 @@ export function inheritedLooks(k) {
 export const secondParentName = k => ent(k).second?.name?.trim() || nameOf(other(k));
 
 // ── Disruptions ──
-export function disrupt(k, kind) {
+// A setback pushes the next heat/rut back by `shift` days: the cycle keeps counting past its end ("late") until the delay
+// is used up. `known` = the characters know the cause; otherwise they only see that the heat/rut is late.
+export const activeSetback = k => { const sb = ent(k).setback; return sb && !sb.resolved ? sb : null; };
+export const setbackLabel = sb => (sb ? [...new Set(sb.kinds.map(x => D.DISRUPTIONS[x]?.label).filter(Boolean))].join(' + ') : '');
+export function disrupt(k, kind, { known = false } = {}) {
     const e = ent(k), d = D.DISRUPTIONS[kind];
     if (!d || !S().disruptionsEnabled) return 0;
+    if (e.pregnant || e.egg.stage !== 'none' || e.postpartumDays > 0) return 0;     // no cycle to push back right now
     const shift = rnd(d.shift[0], d.shift[1]);
+    let sb = activeSetback(k);
+    if (sb) { sb.shift = Math.min(60, sb.shift + shift); if (!sb.kinds.includes(kind)) sb.kinds.push(kind); sb.kind = kind; }
+    else sb = e.setback = { kind, kinds: [kind], shift, used: 0, date: C().date.current, known: false, resolved: false, resolvedDate: null };
+    if (known) sb.known = true;
     e.disruption = { kind, shift, date: C().date.current };
-    if (!(e.pregnant || e.egg.stage !== 'none' || e.postpartumDays > 0) && e.cycleDay > S().heatDuration) {
-        e.cycleDay = Math.max(S().heatDuration + 1, e.cycleDay - shift);
-    }
-    log(k, `Cycle disrupted by ${d.label} (+${shift} days)`);
+    log(k, `Cycle set back by ${d.label} (+${shift} days)`);
     return shift;
+}
+export function resolveSetback(k) {
+    const sb = activeSetback(k);
+    if (!sb) return false;
+    sb.resolved = true; sb.resolvedDate = C().date.current;
+    log(k, `Heat/rut came ${sb.used} day(s) late`);
+    return true;
+}
+export function setSetbackKnown(k, v = true) { const sb = ent(k).setback; if (!sb || sb.resolved) return false; sb.known = !!v; return true; }
+export function clearSetback(k) { const had = !!ent(k).setback; ent(k).setback = null; return had; }
+
+// Where the next heat/rut stands: days until it per the original schedule and in reality, days overdue, and whether the
+// setback is known to the characters (or revealed by the "show hidden" setting).
+export function heatForecast(k) {
+    const e = ent(k), L = S().cycleLength, sb = activeSetback(k), base = L - Math.min(e.cycleDay, L) + 1;
+    return { late: Math.max(0, e.cycleDay - L), expectedIn: base, actualIn: base + (sb ? sb.shift - sb.used : 0), sb, known: !!sb?.known, visible: !!sb && (sb.known || !!S().infoblockShowHidden) };
 }
 
 // ── Trying mode ──
@@ -202,15 +226,20 @@ export function setNest(k, state) { if (D.NEST[state]) ent(k).nest.state = state
 export function cycleInfo(k, dayOverride = null) {
     const c = C(), e = ent(k), s = S(), role = PHYS[c.physiology[k]].role, L = s.cycleLength, Dn = s.heatDuration;
     const d = dayOverride ?? e.cycleDay, nm = role === 'omega' ? 'heat' : 'rut', cap = t => t[0].toUpperCase() + t.slice(1);
-    if (d > L) return { day: d, length: L, sub: 'delayed', label: 'Late', ...D.PHASE_INFO.delayed };
+    const fin = (sub, label, extra = {}) => {
+        const a = (sub === 'delayed' ? D.PHASE_ACT.delayed : D.PHASE_ACT[role][sub]) || {}, fix = t => String(t || '').replace(/\{nm\}/g, nm);
+        const pool = sub.startsWith('heat_') ? 'heat' : sub.startsWith('rut_') ? 'rut' : sub === 'delayed' ? 'late' : sub === 'calm' ? 'quiet' : sub;
+        return { day: d, length: L, sub, label, pool, ...(sub === 'delayed' ? D.PHASE_INFO.delayed : D.PHASE_INFO[role][sub]), story: fix(a.story), act: fix(a.act), others: fix(a.others), ...extra };
+    };
+    if (d > L) return fin('delayed', 'Late');
     let sub, label;
     if (d <= Dn) {
         if (c.contraception[k] === 'suppressant') { sub = 'suppressed'; label = 'Suppressed'; }
         else { const p = Dn > 1 ? (d - 1) / (Dn - 1) : 0.5; sub = `${nm}_${p < 0.34 ? 'early' : p < 0.67 ? 'peak' : 'late'}`; label = cap(nm); }
     } else if (d > L - 3) { sub = 'pre'; label = `Pre-${nm}`; }
     else if (d <= Dn + 3) { sub = 'post'; label = `Post-${nm}`; }
-    else { sub = 'calm'; label = 'Calm'; }
-    return { day: d, length: L, sub, label, ...D.PHASE_INFO[role][sub] };
+    else { sub = 'calm'; label = `Between ${nm}s`; }
+    return fin(sub, label);
 }
 
 // ── Mood, physical state and libido (observed in the story, with phase defaults) ──

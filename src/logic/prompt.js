@@ -29,6 +29,14 @@ function complicationLines(k, known) {
     return out;
 }
 
+// A hidden pregnancy or clutch means the expected heat/rut does not come: the characters notice it is late.
+function lateHint(k, daysIn) {
+    const e = C().entities[k], L = S().cycleLength, late = e.cycleDay + daysIn - L;
+    if (late <= 0) return '';
+    const nm = PHYS[C().physiology[k]].role === 'omega' ? 'heat' : 'rut';
+    return ` The expected ${nm} is ${late} day${late === 1 ? '' : 's'} late; ${M(k)} and people who know their rhythm notice, and may wonder why (stress, illness, medication or something else).`;
+}
+
 function line(k) {
     const c = C(), e = c.entities[k], s = S(), ph = phase(k), phys = PHYS[c.physiology[k]];
     const era = ERAS[c.reveal.era] || ERAS.modern, h = e.health, prac = H.practitioner();
@@ -41,7 +49,7 @@ function line(k) {
         const w = weeksOf(e), st = H.pregStatus(k);
         const babies = h.confirm.count ? (e.fetusCount > 1 ? `${e.fetusCount} babies` : 'one baby') : 'a baby';
         if (!known) {
-            out.push(`${who} is secretly ${w} weeks pregnant. Nobody in the story knows yet, including ${M(k)}; never state or hint at it outright. Subtle symptoms may show naturally (${st.symptoms.join('; ')}) and may be misread as something else. ${w >= era.confirmWeek ? `It can now be confirmed if someone checks (${prac}).` : 'It is too early for this era\'s methods to confirm it.'}`);
+            out.push(`${who} is secretly ${w} weeks pregnant. Nobody in the story knows yet, including ${M(k)}; never state or hint at it outright.${lateHint(k, w * 7)} Subtle symptoms may show naturally (${st.symptoms.join('; ')}) and may be misread as something else. ${w >= era.confirmWeek ? `It can now be confirmed if someone checks (${prac}).` : 'It is too early for this era\'s methods to confirm it.'}`);
         } else {
             out.push(`${who} is ${w} weeks pregnant with ${babies} (trimester ${trimester(w)}, due ${showDate(dueDate(e))}); baby size: ${st.size}. Current sensations: ${st.symptoms.join('; ')}. Baby movement: ${st.movement}; position: ${st.position}; practice contractions: ${st.braxton}; swelling: ${st.swelling}; weight gain about ${st.weight}. Advice: ${st.advice}. Heat/rut does not occur while pregnant.`);
             if (!h.confirm.count && e.fetusCount > 1) out.push(`Secret from the characters: the true number of babies is ${e.fetusCount}. Do not reveal it before an exam confirms the count (${prac}); characters assume one.`);
@@ -59,7 +67,7 @@ function line(k) {
         if (g.stage === 'gravid') {
             out.push(known
                 ? `${who} is carrying a clutch of ${h.confirm.count ? g.count : 'several'} eggs (day ${g.carryDays}/${s.eggCarryDays}): growing roundness, nesting instinct, appetite and warmth-seeking.`
-                : `${who} is secretly carrying a developing clutch; no one knows yet, including ${M(k)}. Only subtle signs (appetite, warmth-seeking, restlessness) may appear. Never state it outright.`);
+                : `${who} is secretly carrying a developing clutch; no one knows yet, including ${M(k)}.${lateHint(k, g.carryDays)} Only subtle signs (appetite, warmth-seeking, restlessness) may appear. Never state it outright.`);
         } else if (g.stage === 'laying_due') {
             out.push(`${who} is carrying ${g.count} eggs and is ready to lay (${g.laid} laid so far): strong nesting drive, rhythmic internal pressure, needs a safe warm nest.`);
         } else if (g.stage === 'incubating') {
@@ -80,20 +88,22 @@ function line(k) {
         } else out.push(`${who} is still lactating; the heat/rut cycle has not returned yet.`);
         if (e.postpartum.lactating) out.push(`${M(k)} ${e.postpartumDays > 120 ? D.LACTATION.drying : D.LACTATION.producing}.`);
     } else {
-        const r = phys.role, nm = r === 'omega' ? 'heat' : 'rut';
-        const d = {
-            heat: 'in heat now: fertility at its peak, rising body temperature, sensitivity to scent and touch, strong need for closeness and an alpha\'s presence',
-            rut: 'in rut now: heightened drive, territorial and protective instincts, strong scent sensitivity, fertility elevated',
-            suppressed: `${nm} is being suppressed by medication: only faint, muted symptoms`,
-            pre: `${nm} is approaching: restlessness, warmth, heightened scent awareness`,
-            quiet: `between ${nm}s: calm, baseline fertility is very low`,
-        }[ph.id];
-        if (d) {
-            const sym = H.phaseSymptoms(k, ph.id, 3);
-            out.push(`${who}: ${d}.${sym.length ? ` Typical sensations right now: ${sym.join('; ')}.` : ''}`);
+        const nm = phys.role === 'omega' ? 'heat' : 'rut', info = H.cycleInfo(k), fc = H.heatForecast(k), plural = n => `${n} day${n === 1 ? '' : 's'}`;
+        const sym = H.phaseSymptoms(k, info.pool, 3);
+        out.push(`${who} is ${info.story}. How they come across: ${info.act}.${sym.length ? ` Typical sensations right now: ${sym.join('; ')}.` : ''} Others around them notice: ${info.others}.`);
+        if (info.sub === 'pre') out.push(`They expect the ${nm} within about ${plural(fc.expectedIn)}.`);
+        const sb = e.setback;
+        if (sb) {
+            const cause = H.setbackLabel(sb), late = fc.late;
+            if (sb.resolved) { if (recent(sb.resolvedDate, 5)) out.push(`${M(k)}'s ${nm} finally came ${plural(sb.used)} late${sb.known ? ` (${cause})` : ''}; the delay is still fresh in their mind.`); }
+            else if (late > 0) out.push(sb.known
+                ? `${M(k)}'s ${nm} is ${plural(late)} late and they know why: ${cause}. It is on their mind and may come up in conversation.`
+                : `${M(k)}'s ${nm} is ${plural(late)} overdue and nobody knows why. This raises questions: ${M(k)} is uneasy and people close to them may notice and ask. (The real cause is ${cause}; do not state it as fact, let them wonder: stress, illness, medication, even pregnancy.)`);
+            else out.push(sb.known
+                ? `${cause} has thrown ${M(k)}'s cycle off: the next ${nm} will come about ${plural(sb.shift)} later than usual.`
+                : `(Hidden) ${cause} is throwing ${M(k)}'s cycle off: the next ${nm} will come about ${plural(sb.shift)} later than the character expects. They do not know yet; do not mention it, just do not start the ${nm} on schedule.`);
         }
         if (s.tryingMode && e.trying.on) out.push(`${M(k)} and ${second} are actively trying for a baby (${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'} so far)${e.trying.cycles >= 3 ? '; longing and some anxiety about it may show' : ''}.`);
-        if (e.disruption && recent(e.disruption.date, 10)) out.push(`The cycle was recently thrown off by ${D.DISRUPTIONS[e.disruption.kind].label}; the next ${nm} is delayed.`);
     }
     if (!(isCarrying(e) && !known)) {
         const fl = H.feelFor(k);

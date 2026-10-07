@@ -37,6 +37,7 @@ export function phase(k) {
     const r = role(k), name = r === 'omega' ? 'Heat' : 'Rut';
     const d = e.cycleDay, Dn = s.heatDuration, L = s.cycleLength;
     const suppressed = c.contraception[k] === 'suppressant';
+    if (d > L) return { id: 'late', label: `${name} late by ${d - L} d`, fertility: 0.03 };
     if (d <= Dn) {
         if (suppressed) return { id: 'suppressed', label: `${name} (suppressed), cycle ${d}/${L}`, fertility: 0.05 };
         return { id: r === 'omega' ? 'heat' : 'rut', label: `${name}, day ${d}/${Dn} (cycle ${d}/${L})`, fertility: r === 'omega' ? 1 : 0.8 };
@@ -81,9 +82,14 @@ export function advance(k, days) {
             log(k, 'Recovered; cycle resumed');
         }
     } else if (e.egg.stage === 'none') {
-        const wraps = Math.floor((e.cycleDay - 1 + days) / s.cycleLength);
-        e.cycleDay = ((e.cycleDay - 1 + days) % s.cycleLength) + 1;
-        if (e.trying?.on) e.trying.cycles += wraps;
+        const L = s.cycleLength;
+        for (let i = 0; i < days; i++) {
+            if (e.cycleDay >= L) {
+                const sb = H.activeSetback(k);
+                if (sb && sb.used < sb.shift) { e.cycleDay += 1; sb.used += 1; }          // the heat/rut is late: the cycle keeps counting past its end
+                else { e.cycleDay = 1; if (e.trying?.on) e.trying.cycles += 1; H.resolveSetback(k); }
+            } else e.cycleDay += 1;
+        }
     }
     H.tick(k);
 }

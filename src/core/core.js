@@ -127,7 +127,8 @@ export const newEntity = () => ({
     babyNames: [],
     second: { name: '', look: '' },                 // second parent (blank name = the other tracked character); look = one free-text appearance line
     trying: { on: false, cycles: 0 },
-    disruption: null,                                // { kind, shift, date }
+    disruption: null,                                // last disruption { kind, shift, date }
+    setback: null,                                   // heat/rut pushed back: { kind, kinds, shift, used, date, known, resolved, resolvedDate }
     nest: { state: 'none' },
     eggs: [],                                        // per-egg { shell, embryo, fate, known }
     health: { complications: [], fetal: null, eggPlanned: [], visit: { date: null, note: '' }, test: { result: null, date: null }, confirm: { count: false, sex: false } },

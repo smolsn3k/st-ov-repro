@@ -9,8 +9,9 @@
 import { S, C, ERAS, CONTRA, contraLabel, trackedKeys, nameOf } from '../core/core.js';
 import * as E from './engine.js';
 import * as H from './health.js';
+import { DISRUPTIONS } from '../core/data.js';
 
-const EVENT_NAMES = ['CONCEPTION_CHECK', 'PROTECTION', 'CYCLE_DAY', 'PREGNANCY_KNOWN', 'TEST', 'EXAM', 'SEX_REVEAL', 'MISCARRIAGE', 'BIRTH', 'LAID_EGGS', 'HATCHED'];
+const EVENT_NAMES = ['CONCEPTION_CHECK', 'PROTECTION', 'CYCLE_SETBACK', 'SETBACK_KNOWN', 'CYCLE_DAY', 'PREGNANCY_KNOWN', 'TEST', 'EXAM', 'SEX_REVEAL', 'MISCARRIAGE', 'BIRTH', 'LAID_EGGS', 'HATCHED'];
 const ORDER = Object.fromEntries(EVENT_NAMES.map((n, i) => [n, i]));   // the order above is the order they are applied in (protection before conception, birth after discovery...)
 
 // Reasoning models sometimes rehearse the tags inside <think>. Closed blocks and a dangling block in the middle are cut;
@@ -104,9 +105,18 @@ export function applyTags(tags, acc) {
                 if (CONTRA[id] && c.contraception[k] !== id) { c.contraception[k] = id; ev.push(`${n}: protection ${contraLabel(id)}`); }
                 break;
             }
+            case 'CYCLE_SETBACK': {
+                const kind = String(t.arg || '').toLowerCase();
+                if (DISRUPTIONS[kind] && !E.isCarrying(e) && e.postpartumDays === 0) { const sh = H.disrupt(k, kind); if (sh) ev.push(`${n}: cycle set back (${DISRUPTIONS[kind].label}, +${sh} d)`); }
+                break;
+            }
+            case 'SETBACK_KNOWN': if (H.setSetbackKnown(k, true)) ev.push(`${n}: the cause of the delay is known`); break;
             case 'CYCLE_DAY': {
                 const d = Math.floor(Number(t.arg));
-                if (!E.isCarrying(e) && e.postpartumDays === 0 && d >= 1 && d <= s.cycleLength && e.cycleDay !== d) { e.cycleDay = d; ev.push(`${n}: cycle day ${d}`); }
+                if (!E.isCarrying(e) && e.postpartumDays === 0 && d >= 1 && d <= s.cycleLength && e.cycleDay !== d) {
+                    e.cycleDay = d; ev.push(`${n}: cycle day ${d}`);
+                    if (d <= s.heatDuration) H.resolveSetback(k);       // the heat/rut finally began
+                }
                 break;
             }
             case 'PREGNANCY_KNOWN':
@@ -184,7 +194,11 @@ export function tagInstructions() {
         const it = [];
         if (E.canConceive(k)) it.push(`${tag('CONCEPTION_CHECK')} semen is released inside them (the tracker applies their protection itself)`);
         if (!carry) it.push(`${tag('PROTECTION', 'condom')} when the story states or changes their protection (none|condom|pill|iud|suppressant|sterile)`);
-        if (!carry && e.postpartumDays === 0) it.push(`${tag('CYCLE_DAY', '1')} a heat or rut clearly begins`);
+        if (!carry && e.postpartumDays === 0) {
+            it.push(`${tag('CYCLE_DAY', '1')} a heat or rut clearly begins`);
+            if (s.disruptionsEnabled) it.push(`${tag('CYCLE_SETBACK', 'stress')} something in the story clearly throws their cycle off (stress|illness|starvation|travel|overwork), once, when it happens`);
+            if (H.activeSetback(k) && !H.activeSetback(k).known) it.push(`${tag('SETBACK_KNOWN')} the story makes them realize why their heat/rut is late`);
+        }
         if (e.pregnant) {
             const era = ERAS[c.reveal.era] || ERAS.modern;
             if (!e.known) {

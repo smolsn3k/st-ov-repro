@@ -127,7 +127,8 @@ function card(k) {
     const healthBox = (chips.length ? `<div>${chips.join('')}</div>` : '') + complicationRows(k)
         + (h.visit.date ? `<small class="ovr-dim">Last visit (${showDate(h.visit.date)}): ${esc(h.visit.note)}</small>` : '')
         + (h.test.result ? `<small class="ovr-dim">Last test (${showDate(h.test.date)}): ${esc(h.test.result)}</small>` : '')
-        + (e.disruption ? `<small class="ovr-dim">Last disruption: ${esc(D.DISRUPTIONS[e.disruption.kind].label)} (${showDate(e.disruption.date)})</small>` : '');
+        + (e.setback ? `<small>Setback: <b>${esc(H.setbackLabel(e.setback))}</b>${e.setback.resolved ? ` · the heat/rut came ${e.setback.used} d late` : ` · +${e.setback.shift} d${e.setback.used ? ` · overdue ${e.setback.used} d` : ''}`} · cause <b>${e.setback.known ? 'known to the characters' : 'not known to the characters'}</b></small>` : '')
+        + (e.disruption && !e.setback ? `<small class="ovr-dim">Last disruption: ${esc(D.DISRUPTIONS[e.disruption.kind].label)} (${showDate(e.disruption.date)})</small>` : '');
 
     let pregBox = '';
     if (e.pregnant) {
@@ -172,7 +173,9 @@ function card(k) {
     const tog = [];
     if (s.tryingMode && E.canConceive(k)) tog.push(`<label class="ovr-switch"><input type="checkbox" data-ent="${k}" data-path="trying.on" ${e.trying.on ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Trying for a baby${e.trying.on ? ` (${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'})` : ''}</span></label>`);
     if (e.postpartumDays > 0) tog.push(`<label class="ovr-switch"><input type="checkbox" data-ent="${k}" data-path="postpartum.lactating" ${e.postpartum.lactating ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Lactating</span></label>`);
+    if (e.setback && !e.setback.resolved) tog.push(`<label class="ovr-switch"><input type="checkbox" data-ent="${k}" data-path="setback.known" ${e.setback.known ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Characters know the cause of the delay</span></label>`);
     const extra = [];
+    if (e.setback) extra.push(`<div class="ovr-inline">${btn('clearsb', 'Clear setback')}</div>`);
     if (s.disruptionsEnabled && !carrying) extra.push(`<div class="ovr-inline"><select class="text_pole" id="ovr_dis_${k}">${Object.entries(D.DISRUPTIONS).map(([id, d]) => `<option value="${id}">${d.label}</option>`).join('')}</select>${btn('disrupt', 'Apply disruption')}</div>`);
     if (live && E.canConceive(k)) extra.push(`<div class="ovr-inline"><input type="text" class="text_pole" id="ovr_mp_d_${k}" placeholder="conceived: today, 10 days ago, 12 May..." title="When it happened: blank or today, '10 days ago', or a date your story uses"><input type="number" class="text_pole ovr-small" id="ovr_mp_n_${k}" min="1" max="4" value="1" title="babies"><input type="text" class="text_pole" id="ovr_mp_p_${k}" placeholder="other parent">${btn('startpreg', 'Start pregnancy')}</div>`);
     const opts_ = sec(`card-${k}-opts`, 'Details and options', `${grid(...f)}${tog.length ? `<div class="ovr-switches">${tog.join('')}</div>` : ''}${extra.join('')}`, 'ovr-inner');
@@ -289,7 +292,7 @@ const val = el => (el.type === 'checkbox' ? el.checked : el.type === 'number' ? 
 const note = (t, type = 'info') => S().notifications && toastr[type](t, 'Omegaverse');
 const syncLock = c => { c.date.manualValue = c.date.manual ? c.date.current : null; c.date.manualText = c.date.manual ? c.date.text : ''; c.date.manualTime = c.date.manual ? c.date.time : null; };
 
-const LABELS = { analyzenow: 'Analyze now', shift: 'Date shift', addchild: 'Added child', analyzelooks: 'Appearance analysis', adv: 'Advance time', conceive: 'Conception', birth: 'Birth', lay: 'Laying eggs', hatch: 'Hatching', end: 'Ended', startpreg: 'Manual pregnancy start', disrupt: 'Disruption', visit: 'Visit', test: 'Test', reveal: 'Reveal', resolvec: 'Resolved complication', 'date-adv': 'Date change', 'date-only': 'Date change', fed: 'Fed', changed: 'Diaper changed', grow: 'Moved to older', delbaby: 'Removed child' };
+const LABELS = { clearsb: 'Cleared setback', analyzenow: 'Analyze now', shift: 'Date shift', addchild: 'Added child', analyzelooks: 'Appearance analysis', adv: 'Advance time', conceive: 'Conception', birth: 'Birth', lay: 'Laying eggs', hatch: 'Hatching', end: 'Ended', startpreg: 'Manual pregnancy start', disrupt: 'Disruption', visit: 'Visit', test: 'Test', reveal: 'Reveal', resolvec: 'Resolved complication', 'date-adv': 'Date change', 'date-only': 'Date change', fed: 'Fed', changed: 'Diaper changed', grow: 'Moved to older', delbaby: 'Removed child' };
 
 export function mount() {
     if ($('#ovr_root').length) return;
@@ -355,6 +358,7 @@ export function mount() {
             case 'visit': { const r = H.visit(k); return done(r.msg); }
             case 'test': { const r = H.takeTest(k); return done(r.msg); }
             case 'resolvec': { const h = c.entities[k].health, x = (el.dataset.kind === 'e' ? h.eggPlanned : h.complications)[+el.dataset.i]; if (x) { x.resolved = true; x.diagnosed = true; } return done(); }
+            case 'clearsb': return done(H.clearSetback(k) ? `${n}: setback cleared` : null);
             case 'disrupt': { const kind = $(`#ovr_dis_${k}`).val(), sh = H.disrupt(k, kind); return done(sh ? `${n}: cycle delayed by ${sh} days` : null); }
             case 'startpreg': {
                 const raw = ($(`#ovr_mp_d_${k}`).val() || '').trim(), cnt = Number($(`#ovr_mp_n_${k}`).val()) || 1, p = ($(`#ovr_mp_p_${k}`).val() || '').trim();

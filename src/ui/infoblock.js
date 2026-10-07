@@ -39,12 +39,17 @@ function cycleCard(k, hidden) {
     const rawDay = hidden ? e.cycleDay + (e.pregnant ? e.days : e.egg.carryDays) : e.cycleDay;
     const info = H.cycleInfo(k, rawDay), day = Math.min(rawDay, L), delay = Math.max(0, rawDay - L);
     const fl = H.feelNow(k, { mood: info.mood, physical: info.physical, libidoText: info.libido });
-    const nm = PHYS[c.physiology[k]].role === 'omega' ? 'heat' : 'rut';
-    const badge = hidden && delay > 0 ? `Late ${delay} d` : `${day}/${L} · ${info.label}`;
+    const nm = PHYS[c.physiology[k]].role === 'omega' ? 'heat' : 'rut', Nm = nm[0].toUpperCase() + nm.slice(1);
+    const fc = H.heatForecast(k), sb = hidden ? null : e.setback, cause = sb ? H.setbackLabel(sb) : '';
+    const badge = delay > 0 ? `Late ${delay} d` : `${day}/${L} · ${info.label}`;
     const extra = [];
     if (!hidden) {
         const inWin = e.cycleDay <= Dn && info.sub !== 'suppressed';
-        extra.push(inWin ? stat('calendar-day', 'pink', `${nm[0].toUpperCase()}${nm.slice(1)} day`, `${e.cycleDay} of ${Dn}`) : stat('calendar-day', 'purple', `Next ${nm}`, `in ${L - e.cycleDay + 1} d`));
+        if (inWin) extra.push(stat('calendar-day', 'pink', `${Nm} day`, `${e.cycleDay} of ${Dn}`));
+        else if (delay > 0) extra.push(stat('calendar-xmark', 'orange', `${Nm} overdue`, `${delay} d`));
+        else extra.push(stat('calendar-day', 'purple', `Next ${nm}`, `in ${fc.visible ? fc.actualIn : fc.expectedIn} d${fc.visible && fc.actualIn !== fc.expectedIn ? ' (delayed)' : ''}`));
+        if (sb && !sb.resolved) extra.push(stat('triangle-exclamation', 'orange', 'Setback', esc(sb.known || s.infoblockShowHidden ? `${cause}, +${sb.shift} d${sb.known ? '' : ' (unknown to them)'}` : 'Cause unknown to them'), true));
+        else if (sb?.resolved) extra.push(stat('circle-check', 'green', 'Setback over', esc(`${Nm} came ${sb.used} d late${cause && (sb.known || s.infoblockShowHidden) ? ` (${cause})` : ''}`), true));
         const con = c.contraception[k];
         if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Protection', esc(`${D_CON[con] || con} ${contraProtection(con)}%`)));
         if (e.trying?.on && s.tryingMode) extra.push(stat('bullseye', 'pink', 'Trying', `${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'}`));
@@ -52,8 +57,9 @@ function cycleCard(k, hidden) {
     const t = e.health.test;
     if (t.result && E.phase(k)) extra.push(stat('vial', t.result === 'negative' ? 'blue' : 'pink', 'Test', esc(t.result)));
     const pct = Math.min(100, Math.round((rawDay / L) * 100));
+    const lateNote = delay > 0 && !hidden && sb && !sb.resolved ? (sb.known ? `${Nm} is ${delay} day${delay === 1 ? '' : 's'} late: ${cause}.` : `${Nm} is ${delay} day${delay === 1 ? '' : 's'} late and nobody knows why.${s.infoblockShowHidden ? ` (Cause: ${cause}.)` : ''}`) : '';
     const body = `<div class="ovr-ib-bar" style="--zone:${(Dn / L) * 100}%"><div class="ovr-ib-bar-fill cycle" style="width:${pct}%"></div></div>
-        <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(hidden ? 'Undetermined' : info.fertility))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(info.note))}</div>`;
+        <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(hidden ? 'Undetermined' : info.fertility))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(lateNote || info.note))}</div>`;
     return card(`c-${k}`, 'cycle', 'clock', `${esc(nameOf(k))} · ${roleWord(k)}`, esc(badge), 'cycle', body);
 }
 const D_CON = { condom: 'Barrier', pill: 'Hormonal', iud: 'IUD / implant', suppressant: 'Suppressants', sterile: 'Sterile' };
