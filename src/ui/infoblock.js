@@ -1,6 +1,6 @@
 // Chat infoblock: compact, collapsible status cards under (or above) the latest message.
 // DOM only; never written into the message or the prompt.
-import { S, C, trackedKeys, nameOf, PHYS, contraProtection, showDate, dateLabel, hasDate } from '../core/core.js';
+import { S, C, trackedKeys, nameOf, PHYS, contraProtection, showDate, dateLabel, hasDate, fertilityWord } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
@@ -34,6 +34,7 @@ function healthTile(k, reveal) {
 }
 
 // ── Cycle (heat/rut) card; also used for hidden pregnancies so the secret stays secret ──
+const pctOf = v => +(v * 100).toFixed(1);
 function cycleCard(k, hidden) {
     const c = C(), e = c.entities[k], s = S(), L = s.cycleLength, Dn = s.heatDuration;
     const rawDay = hidden ? e.cycleDay + (e.pregnant ? e.days : e.egg.carryDays) : e.cycleDay;
@@ -50,8 +51,9 @@ function cycleCard(k, hidden) {
         else extra.push(stat('calendar-day', 'purple', `Next ${nm}`, `in ${fc.visible ? fc.actualIn : fc.expectedIn} d${fc.visible && fc.actualIn !== fc.expectedIn ? ' (delayed)' : ''}`));
         if (sb && !sb.resolved) extra.push(stat('triangle-exclamation', 'orange', 'Setback', esc(sb.known || s.infoblockShowHidden ? `${cause}, +${sb.shift} d${sb.known ? '' : ' (unknown to them)'}` : 'Cause unknown to them'), true));
         else if (sb?.resolved) extra.push(stat('circle-check', 'green', 'Setback over', esc(`${Nm} came ${sb.used} d late${cause && (sb.known || s.infoblockShowHidden) ? ` (${cause})` : ''}`), true));
-        const con = c.contraception[k], odds = E.conceptionOdds(k), inHeatNow = info.sub.startsWith('heat_') || info.sub.startsWith('rut_');
-        extra.push(stat('seedling', 'green', 'Conception', esc(`${+(odds * 100).toFixed(1)}%${inHeatNow ? ' (in ' + nm + ')' : ''}`)));
+        const con = c.contraception[k], odds = E.conceptionOdds(k), tryingNow = s.tryingMode && e.trying?.on;
+        const why = [con !== 'none' && !tryingNow && `${(D_CON[con] || con).toLowerCase()} −${contraProtection(con)}%`, c.suppressants[k] && 'suppressed', tryingNow && 'trying'].filter(Boolean).join(', ');
+        extra.push(stat('seedling', 'green', 'Conception', esc(`${pctOf(odds)}%${why ? ` (${why})` : ''}`)));
         if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Contraception', esc(`${D_CON[con] || con} ${contraProtection(con)}%`)));
         if (c.suppressants[k]) extra.push(stat('pills', 'blue', 'Suppressants', 'On'));
         if (e.trying?.on && s.tryingMode) extra.push(stat('bullseye', 'pink', 'Trying', `${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'}`));
@@ -61,7 +63,7 @@ function cycleCard(k, hidden) {
     const pct = Math.min(100, Math.round((rawDay / L) * 100));
     const lateNote = delay > 0 && !hidden && sb && !sb.resolved ? (sb.known ? `${Nm} is ${delay} day${delay === 1 ? '' : 's'} late: ${cause}.` : `${Nm} is ${delay} day${delay === 1 ? '' : 's'} late and nobody knows why.${s.infoblockShowHidden ? ` (Cause: ${cause}.)` : ''}`) : '';
     const body = `<div class="ovr-ib-bar" style="--zone:${(Dn / L) * 100}%"><div class="ovr-ib-bar-fill cycle" style="width:${pct}%"></div></div>
-        <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(hidden ? 'Undetermined' : info.fertility))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(lateNote || info.note))}</div>`;
+        <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(hidden ? 'Undetermined' : `${pctOf(E.naturalChance(k))}% (${fertilityWord(E.naturalChance(k) * 100)})`))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(lateNote || info.note))}</div>`;
     return card(`c-${k}`, 'cycle', 'clock', `${esc(nameOf(k))} · ${roleWord(k)}`, esc(badge), 'cycle', body);
 }
 const D_CON = { condom: 'Barrier', pill: 'Hormonal', iud: 'IUD / implant', sterile: 'Sterile' };

@@ -1,5 +1,5 @@
 // Settings panel (Extensions drawer): global settings, this-chat settings, status cards, children, family tree, history.
-import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, contraLabel, contraProtection, trackedKeys, nameOf, hooks, showDate, dateLabel, hasDate } from '../core/core.js';
+import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, contraLabel, contraProtection, trackedKeys, nameOf, hooks, showDate, dateLabel, hasDate, STAGES, fertilityWord } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
@@ -115,7 +115,7 @@ function card(k) {
     const head = `<div class="ovr-card-head"><div><b>${esc(nameOf(k))}</b> <span class="ovr-pill">${phys.label}</span> <span class="ovr-pill soft">${live ? 'live birth' : 'oviposition'}</span></div><span class="ovr-badge ${BADGE[ph.id] || 'calm'}">${esc(ph.label)}</span></div>`;
     const top = [];
     if (prog) top.push(`${bar(prog[0], prog[1], BADGE[ph.id] || '')}<small class="ovr-dim">${prog[2]}</small>`);
-    if (ph.fertility > 0) top.push(`<small>Conception odds per qualifying event: <b>${Math.round(E.conceptionOdds(k) * 100)}%</b></small>`);
+    if (ph.fertility > 0) { const nat = +(E.naturalChance(k) * 100).toFixed(1), eff = +(E.conceptionOdds(k) * 100).toFixed(1); top.push(`<small>Fertility (unprotected): <b>${nat}%</b> ${esc(fertilityWord(nat))} · Conception (with contraception): <b>${eff}%</b> per qualifying event</small>`); }
     if (!carrying && !e.postpartumDays) { const sy = H.phaseSymptoms(k, ph.id, 3); if (sy.length) top.push(`<small class="ovr-dim">${esc(sy.join(' · '))}</small>`); }
     if (e.postpartumDays > 0) { const st = H.postpartumStage(k); if (st) top.push(`<small class="ovr-dim">${esc(st.label)}: ${esc(st.sym.slice(0, 3).join(' · '))}</small>`); }
     if (!(carrying && !e.known)) { const fl = H.feelFor(k); top.push(`<small>Mood: <b>${esc(fl.mood)}</b> · Physical: <b>${esc(fl.physical)}</b> · Libido: <b>${esc(fl.libido)}</b>${fl.observed.mood || fl.observed.physical || fl.observed.libido ? ' <span class="ovr-dim">(from the story)</span>' : ''}</small>`); }
@@ -232,8 +232,9 @@ export function render() {
             <label class="ovr-field wide"><span>API profile</span><select class="text_pole" data-g="apiProfile">${profOpts}</select></label>
             ${pf.length ? '' : '<small class="ovr-dim">No Connection Manager profiles found; the main API is used.</small>'}
             <div class="ovr-switches">${chk('autoAnalyze', 'Analyze messages for events')}${chk('smartFilter', 'Only analyze when the text looks relevant')}${chk('trackFeelings', 'Track mood, physical state and libido from the chat')}</div>${grid(numField('analyzeDepth', 'Messages sent to analyzer', 1, 10), numField('feelInterval', s.detectMode === 'both' ? 'Backup mood check every N messages (only when a reply has no tags)' : 'Mood check every N messages', 1, 50), numField('feelDays', 'Mood stays valid, story days', 1, 30), numField('dateScanDepth', 'Messages scanned for tags and dates', 1, 30))}`,
-        cycle: `${grid(numField('conceptionHeat', 'Conception chance during heat/rut, %', 0, 100, 0.5), numField('conceptionOutside', 'Conception chance outside heat/rut, %', 0, 100, 0.5), numField('cycleLength', 'Cycle length, days', 10, 120), numField('heatDuration', 'Heat/rut duration, days', 1, 14))}
-            <small class="ovr-dim">Both chances are per qualifying event with no protection. A suppressed or late heat/rut counts as outside. Contraception lowers the chance by the protection below; suppressants only stop the heat/rut.</small>
+        cycle: `${grid(numField('cycleLength', 'Cycle length, days', 10, 120), numField('heatDuration', 'Heat/rut duration, days', 1, 14))}
+            <small class="ovr-dim"><b>Fertility</b> by stage: the chance of conceiving per qualifying event with no protection. <b>Conception</b> is that fertility lowered by the contraception's protection (below). Suppressants only stop the heat/rut, so a suppressed heat uses the Suppressed value.</small>
+            ${grid(...STAGES.map(([id, label]) => `<label class="ovr-field"><span>${esc(label)}, %</span><input type="number" class="text_pole" data-stage="${id}" min="0" max="100" step="0.5" value="${s.stageChance[id]}"></label>`))}
             ${grid(...['condom', 'pill', 'iud'].map(id => `<label class="ovr-field"><span>${esc(CONTRA[id].label)}, %</span><input type="number" class="text_pole" data-prot="${id}" min="0" max="100" value="${contraProtection(id)}"></label>`))}
             <div class="ovr-switches">${chk('tryingMode', 'Trying-for-a-baby mode')}${chk('disruptionsEnabled', 'Cycle disruptions')}</div>`,
         live: `${grid(numField('termWeeks', 'Pregnancy length, weeks', 8, 60), numField('twinsChance', 'Twins chance, %', 0, 100, 0.1), numField('tripletsChance', 'Triplets chance, %', 0, 100, 0.1), numField('doctorCooldown', 'Visit cooldown, days', 0, 60), numField('complicationChance', 'Complication multiplier, %', 0, 300), numField('fetalDiseaseChance', 'Fetal disease chance, %', 0, 100, 0.5))}
@@ -314,6 +315,10 @@ export function mount() {
         const el = e.currentTarget; S()[el.dataset.gr] = Number(el.value); applyCustomCss();
         $(`${root} [data-rv="${el.dataset.gr}"]`).text(`${el.value}%`);
         if (e.type === 'change') saveS();
+    });
+    $(document).on('change', `${root} [data-stage]`, e => {
+        const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round((Number(el.value) || 0) * 2) / 2));
+        S().stageChance[el.dataset.stage] = v; saveS(); refresh();
     });
     $(document).on('change', `${root} [data-prot]`, e => {
         const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round(Number(el.value) || 0)));

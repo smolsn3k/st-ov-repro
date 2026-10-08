@@ -46,13 +46,22 @@ export function phase(k) {
     return { id: 'quiet', label: `Between ${name.toLowerCase()}s, cycle ${d}/${L}`, fertility: 0.03 };
 }
 
+// Fertility as a number: the chance of conceiving per qualifying event with no protection at all.
+export function naturalChance(k) {
+    const p = phase(k);
+    if (!p.fertility) return 0;                                       // pregnant, carrying eggs or recovering
+    const sub = p.id === 'lactating' ? 'calm' : H.cycleInfo(k).sub.replace(/^rut_/, 'heat_');     // the cycle stage (a rut uses the heat/rut values)
+    const v = Number(S().stageChance?.[sub] ?? S().stageChance?.calm ?? 0);
+    return Math.max(0, Math.min(1, v / 100));
+}
+
+// Conception: the chance that actually applies, after contraception (or trying for a baby).
 export function conceptionOdds(k) {
     const p = phase(k), e = ent(k);
-    if (!p.fertility) return 0;                                       // pregnant, carrying eggs or recovering
-    const inHeat = p.id === 'heat' || p.id === 'rut';                // a suppressed or late heat/rut is not a heat/rut
+    const base = naturalChance(k);
+    if (!base) return 0;
     let mult = contraMult(C().contraception[k]);
     if (S().tryingMode && e.trying?.on && mult > 0) mult = 1;     // actively trying: protection set aside (sterile stays 0)
-    const base = (inHeat ? S().conceptionHeat : S().conceptionOutside) / 100;
     return Math.max(0, Math.min(1, base * mult * H.tryingMult(k)));
 }
 

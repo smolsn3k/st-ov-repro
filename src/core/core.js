@@ -74,8 +74,9 @@ export const DEFAULTS = {
     injectDepth: 1,
     cycleLength: 30,           // days from one heat/rut start to the next
     heatDuration: 5,
-    conceptionHeat: 40,        // % per qualifying event during a heat/rut, no protection
-    conceptionOutside: 2,      // % per qualifying event outside a heat/rut (suppressed or late heats count as outside), no protection
+    // Fertility: % chance of conceiving per qualifying event with NO protection, for each stage of the cycle.
+    // Conception = fertility lowered by the contraception's protection (see `protection`). Suppressed and late heats use their own values.
+    stageChance: { heat_early: 30, heat_peak: 40, heat_late: 30, post: 3, calm: 2, pre: 4, delayed: 2, suppressed: 2 },
     termWeeks: 40,
     twinsChance: 3,            // %
     tripletsChance: 0.3,       // %
@@ -163,7 +164,14 @@ export function S() {
     const es = ctx().extensionSettings;
     if (!es[NAME]) es[NAME] = {};
     const legacy = es[NAME].schema === undefined && Object.keys(es[NAME]).length > 0;
-    if (es[NAME].conceptionHeat === undefined && Number.isFinite(es[NAME].conceptionChance)) es[NAME].conceptionHeat = es[NAME].conceptionChance;   // the old single chance becomes the heat/rut chance
+    if (es[NAME].stageChance === undefined) {       // earlier versions had one chance for the heat/rut and one for outside it
+        const H = Number.isFinite(es[NAME].conceptionHeat) ? es[NAME].conceptionHeat : Number.isFinite(es[NAME].conceptionChance) ? es[NAME].conceptionChance : null;
+        const O = Number.isFinite(es[NAME].conceptionOutside) ? es[NAME].conceptionOutside : null;
+        if (H !== null || O !== null) {
+            const h = H ?? 40, o = O ?? 2, r = x => Math.round(x * 2) / 2;
+            es[NAME].stageChance = { heat_early: r(h * 0.75), heat_peak: h, heat_late: r(h * 0.75), post: r(o * 1.5), calm: o, pre: r(o * 2), delayed: o, suppressed: o };
+        }
+    }
     fill(es[NAME], DEFAULTS);
     if (legacy) {   // v1.0 saved settings: analyzer mood check was every 2 messages; the new default is lower-frequency
         if (es[NAME].feelInterval === 2) es[NAME].feelInterval = 6;
@@ -251,3 +259,12 @@ export function dateLabel(plain = false) {
     return d.text && toDays(d.textDay) === z ? d.text : (d.yearless ? prettyNoYear(z) : pretty(z));
 }
 export const hasDate = () => toDays(C().date.current) !== null;
+
+// Stages of the cycle that have their own fertility percentage, in cycle order.
+export const STAGES = [
+    ['heat_early', 'Heat/rut: start'], ['heat_peak', 'Heat/rut: peak'], ['heat_late', 'Heat/rut: end'],
+    ['post', 'Post-heat/rut'], ['calm', 'Between heats/ruts'], ['pre', 'Pre-heat/rut'],
+    ['delayed', 'Late (overdue) heat/rut'], ['suppressed', 'Suppressed heat/rut'],
+];
+// A word for a fertility percentage, so the label can never disagree with the number.
+export const fertilityWord = pct => (pct <= 0 ? 'None' : pct >= 35 ? 'Peak' : pct >= 15 ? 'High' : pct >= 5 ? 'Moderate' : pct >= 1.5 ? 'Low' : 'Very low');
