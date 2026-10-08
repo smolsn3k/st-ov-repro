@@ -76,7 +76,7 @@ export const DEFAULTS = {
     heatDuration: 5,
     // Fertility: % chance of conceiving per qualifying event with NO protection, for each stage of the cycle.
     // Conception = fertility lowered by the contraception's protection (see `protection`). Suppressed and late heats use their own values.
-    stageChance: { heat_early: 30, heat_peak: 40, heat_late: 30, post: 3, calm: 2, pre: 4, delayed: 2, suppressed: 2 },
+    stageChance: { heat_early: 90, heat_peak: 99, heat_late: 90, post: 5, calm: 1, pre: 4, delayed: 2, suppressed: 2 },
     termWeeks: 40,
     twinsChance: 3,            // %
     tripletsChance: 0.3,       // %
@@ -126,7 +126,7 @@ export const newEntity = () => ({
     postpartum: { method: 'natural', lactating: false },
     deliveryMethod: 'natural',
     babyNames: [],
-    second: { name: '', look: '' },                 // second parent (blank name = the other tracked character); look = one free-text appearance line
+    second: { name: '', look: '', fertility: 100 },                 // second parent (blank name = the other tracked character); look = one free-text appearance line
     trying: { on: false, cycles: 0 },
     disruption: null,                                // last disruption { kind, shift, date }
     setback: null,                                   // heat/rut pushed back: { kind, kinds, shift, used, date, known, resolved, resolvedDate }
@@ -138,6 +138,7 @@ export const newEntity = () => ({
 
 export const CHAT_DEFAULTS = () => ({
     physiology: { user: 'm-omega', char: 'm-alpha' },
+    fertility: { user: 100, char: 100 },              // personal fertility %: 100 is normal, lower means fertility problems; the partner's counts too
     repro: { user: 'live', char: 'live' },          // live | oviposition
     contraception: { user: 'none', char: 'none' },   // none | condom | pill | iud | sterile : prevents conception
     suppressants: { user: false, char: false },       // heat/rut suppressants: stop the heat/rut itself (separate from contraception)
@@ -164,6 +165,8 @@ export function S() {
     const es = ctx().extensionSettings;
     if (!es[NAME]) es[NAME] = {};
     const legacy = es[NAME].schema === undefined && Object.keys(es[NAME]).length > 0;
+    const st = es[NAME].stageChance;      // the first stage defaults (30/40/30...) were far too low for an omegaverse heat: replace them if never edited
+    if (st && ['heat_early:30', 'heat_peak:40', 'heat_late:30', 'post:3', 'calm:2', 'pre:4', 'delayed:2', 'suppressed:2'].every(p => st[p.split(':')[0]] === Number(p.split(':')[1]))) es[NAME].stageChance = { ...DEFAULTS.stageChance };
     if (es[NAME].stageChance === undefined) {       // earlier versions had one chance for the heat/rut and one for outside it
         const H = Number.isFinite(es[NAME].conceptionHeat) ? es[NAME].conceptionHeat : Number.isFinite(es[NAME].conceptionChance) ? es[NAME].conceptionChance : null;
         const O = Number.isFinite(es[NAME].conceptionOutside) ? es[NAME].conceptionOutside : null;

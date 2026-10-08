@@ -52,7 +52,8 @@ function cycleCard(k, hidden) {
         if (sb && !sb.resolved) extra.push(stat('triangle-exclamation', 'orange', 'Setback', esc(sb.known || s.infoblockShowHidden ? `${cause}, +${sb.shift} d${sb.known ? '' : ' (unknown to them)'}` : 'Cause unknown to them'), true));
         else if (sb?.resolved) extra.push(stat('circle-check', 'green', 'Setback over', esc(`${Nm} came ${sb.used} d late${cause && (sb.known || s.infoblockShowHidden) ? ` (${cause})` : ''}`), true));
         const con = c.contraception[k], odds = E.conceptionOdds(k), tryingNow = s.tryingMode && e.trying?.on;
-        const why = [con !== 'none' && !tryingNow && `${(D_CON[con] || con).toLowerCase()} −${contraProtection(con)}%`, c.suppressants[k] && 'suppressed', tryingNow && 'trying'].filter(Boolean).join(', ');
+        const pfr = E.partnerFertility(k), pf = Math.round(pfr * 100);
+        const why = [pfr === 0 ? 'partner sterile' : pf < 100 && `partner fertility ${pf}%`, con !== 'none' && !tryingNow && `${(D_CON[con] || con).toLowerCase()} −${contraProtection(con)}%`, c.suppressants[k] && 'suppressed', tryingNow && 'trying'].filter(Boolean).join(', ');
         extra.push(stat('seedling', 'green', 'Conception', esc(`${pctOf(odds)}%${why ? ` (${why})` : ''}`)));
         if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Contraception', esc(`${D_CON[con] || con} ${contraProtection(con)}%`)));
         if (c.suppressants[k]) extra.push(stat('pills', 'blue', 'Suppressants', 'On'));

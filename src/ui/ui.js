@@ -115,7 +115,7 @@ function card(k) {
     const head = `<div class="ovr-card-head"><div><b>${esc(nameOf(k))}</b> <span class="ovr-pill">${phys.label}</span> <span class="ovr-pill soft">${live ? 'live birth' : 'oviposition'}</span></div><span class="ovr-badge ${BADGE[ph.id] || 'calm'}">${esc(ph.label)}</span></div>`;
     const top = [];
     if (prog) top.push(`${bar(prog[0], prog[1], BADGE[ph.id] || '')}<small class="ovr-dim">${prog[2]}</small>`);
-    if (ph.fertility > 0) { const nat = +(E.naturalChance(k) * 100).toFixed(1), eff = +(E.conceptionOdds(k) * 100).toFixed(1); top.push(`<small>Fertility (unprotected): <b>${nat}%</b> ${esc(fertilityWord(nat))} · Conception (with contraception): <b>${eff}%</b> per qualifying event</small>`); }
+    if (ph.fertility > 0) { const nat = +(E.naturalChance(k) * 100).toFixed(1), eff = +(E.conceptionOdds(k) * 100).toFixed(1); const pfr = E.partnerFertility(k), pf = Math.round(pfr * 100); top.push(`<small>Fertility (unprotected): <b>${nat}%</b> ${esc(fertilityWord(nat))}${pfr === 0 ? ' · other parent sterile' : pf < 100 ? ` · other parent ${pf}%` : ''} · Conception (with contraception): <b>${eff}%</b> per qualifying event</small>`); }
     if (!carrying && !e.postpartumDays) { const sy = H.phaseSymptoms(k, ph.id, 3); if (sy.length) top.push(`<small class="ovr-dim">${esc(sy.join(' · '))}</small>`); }
     if (e.postpartumDays > 0) { const st = H.postpartumStage(k); if (st) top.push(`<small class="ovr-dim">${esc(st.label)}: ${esc(st.sym.slice(0, 3).join(' · '))}</small>`); }
     if (!(carrying && !e.known)) { const fl = H.feelFor(k); top.push(`<small>Mood: <b>${esc(fl.mood)}</b> · Physical: <b>${esc(fl.physical)}</b> · Libido: <b>${esc(fl.libido)}</b>${fl.observed.mood || fl.observed.physical || fl.observed.libido ? ' <span class="ovr-dim">(from the story)</span>' : ''}</small>`); }
@@ -161,6 +161,7 @@ function card(k) {
         f.push(`<label class="ovr-field"><span>Delivery method</span><select class="text_pole" data-ent="${k}" data-path="deliveryMethod"><option value="natural" ${e.deliveryMethod === 'natural' ? 'selected' : ''}>Natural</option><option value="csection" ${e.deliveryMethod === 'csection' ? 'selected' : ''}>C-section</option></select></label>`);
     }
     f.push(`<label class="ovr-field"><span>Other parent</span>${ep(k, 'second.name', 'text', e.second.name, `placeholder="${esc(H.secondParentName(k))}"`)}</label>`);
+    if (e.second.name?.trim()) f.push(`<label class="ovr-field"><span>Other parent</span><select class="text_pole" data-ent="${k}" data-path="second.fertility" data-num><option value="100" ${Number(e.second.fertility ?? 100) > 0 ? 'selected' : ''}>Fertile</option><option value="0" ${Number(e.second.fertility ?? 100) > 0 ? '' : 'selected'}>Sterile</option></select></label>`);
     f.push(`<label class="ovr-field"><span>Other parent appearance</span>${ep(k, 'second.look', 'text', e.second.look, 'placeholder="e.g. blue eyes, blond hair"')}</label>`);
     if (carrying) {
         const n = e.pregnant ? e.fetusCount : e.egg.count;
@@ -269,6 +270,7 @@ export function render() {
         <small class="ovr-dim">${c.date.cal === 'free' ? 'This date is free text, so it cannot move time by itself. Time moves from "N days later" in the story or from the + day buttons.' : 'Dates with a day and month (a year is optional) move time forward automatically. Anything else is kept as you wrote it and the + day buttons move time.'}</small>
         <div class="ovr-switches">${`<label class="ovr-switch"><input type="checkbox" id="ovr_date_lock" ${c.date.manual ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Lock date (ignore dates found in chat)</span></label>`}</div>
         ${sec('c-phys', 'Physiology and reproduction type', physRow('user') + physRow('char'), 'ovr-sub')}
+        ${sec('c-fert', 'Fertility', `<small class="ovr-dim">Omegas have a fertility percentage (100% is normal; a low value means fertility problems, such as an omega who rarely conceives even in a heat). Alphas are only fertile or sterile: fertile does not change the chance, sterile means no conception.</small>${['user', 'char'].map(k => PHYS[c.physiology[k]].role === 'alpha' ? `<label class="ovr-row"><span>${esc(nameOf(k))} (alpha)</span><select class="text_pole" data-c="fertility.${k}" data-num><option value="100" ${Number(c.fertility[k]) > 0 ? 'selected' : ''}>Fertile</option><option value="0" ${Number(c.fertility[k]) > 0 ? '' : 'selected'}>Sterile</option></select></label>` : `<label class="ovr-row"><span>${esc(nameOf(k))} (omega)</span><input type="number" class="text_pole" data-c="fertility.${k}" min="0" max="100" step="1" value="${c.fertility[k]}"></label>`).join('')}`, 'ovr-sub')}
         ${sec('c-con', 'Contraception and suppressants', conRow('user') + conRow('char'), 'ovr-sub')}
         ${sec('c-look', 'Appearance for inheritance', `<small class="ovr-dim">One line per person. Eye and hair colors are read from it.</small>${looksRow('user')}${looksRow('char')}<div class="ovr-btns"><div class="menu_button ovr-btn" data-act="analyzelooks">Analyze parents' appearance with AI</div></div>`, 'ovr-sub')}
         ${sec('c-reveal', 'Reveal Mode', `<label class="ovr-row"><span>Era</span><select class="text_pole" data-c="reveal.era">${opts(ERAS, c.reveal.era)}</select></label><small class="ovr-dim">Medical help in this era: ${esc(H.practitioner())}</small>
@@ -290,7 +292,7 @@ export function render() {
 export function refresh() { updatePrompt(); render(); renderInfoblock(); }
 
 function setPath(obj, path, v) { const p = path.split('.'); const last = p.pop(); p.reduce((o, k) => o[k] ??= (/^\d+$/.test(k) ? [] : {}), obj)[last] = v; }
-const val = el => (el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value);
+const val = el => (el.type === 'checkbox' ? el.checked : el.type === 'number' || el.dataset.num !== undefined ? Number(el.value) : el.value);
 const note = (t, type = 'info') => S().notifications && toastr[type](t, 'Omegaverse');
 const syncLock = c => { c.date.manualValue = c.date.manual ? c.date.current : null; c.date.manualText = c.date.manual ? c.date.text : ''; c.date.manualTime = c.date.manual ? c.date.time : null; };
 

@@ -139,7 +139,8 @@ export function applyTags(tags, acc) {
                 if (E.canConceive(k)) {
                     const odds = E.conceptionOdds(k);
                     acc.rolled[k] = true;
-                    if (E.conceive(k)) ev.push(`${n} conceived (${Math.round(odds * 100)}% odds)`);
+                    if (E.conceive(k)) ev.push(`${n} conceived (${+(odds * 100).toFixed(1)}% chance)`);
+                    else ev.push(`${n}: conception check negative (${+(odds * 100).toFixed(1)}% chance)`);
                 }
                 break;
             case 'MISCARRIAGE': if (E.loseOrEnd(k)) ev.push(`${n}: ${e.pregnant ? 'pregnancy' : 'clutch'} lost`); break;

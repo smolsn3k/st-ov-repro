@@ -52,7 +52,23 @@ export function naturalChance(k) {
     if (!p.fertility) return 0;                                       // pregnant, carrying eggs or recovering
     const sub = p.id === 'lactating' ? 'calm' : H.cycleInfo(k).sub.replace(/^rut_/, 'heat_');     // the cycle stage (a rut uses the heat/rut values)
     const v = Number(S().stageChance?.[sub] ?? S().stageChance?.calm ?? 0);
-    return Math.max(0, Math.min(1, v / 100));
+    return Math.max(0, Math.min(1, (v / 100) * personalFertility(k)));
+}
+
+// Personal fertility (0-1): 100% is normal. A low value is a fertility problem, e.g. an omega who never conceives in a heat.
+// Omegas carry a personal fertility percentage. Alphas are only fertile or sterile (sterile = 0, anything above is fertile),
+// so an alpha never changes the chance except by being sterile.
+const roleOf = k => PHYS[C().physiology[k]]?.role;
+function fertilityOf(role, v) {
+    const n = Number(v), x = Number.isFinite(n) ? n : 100;
+    return role === 'alpha' ? (x > 0 ? 1 : 0) : Math.max(0, Math.min(1, x / 100));
+}
+export const personalFertility = k => fertilityOf(roleOf(k), C().fertility?.[k]);
+// The other parent: a named second parent is fertile or sterile, otherwise it is the other character.
+export function partnerFertility(k) {
+    if (ent(k).second?.name?.trim()) return fertilityOf('alpha', ent(k).second.fertility);
+    const o = k === 'user' ? 'char' : 'user';
+    return fertilityOf(roleOf(o), C().fertility?.[o]);
 }
 
 // Conception: the chance that actually applies, after contraception (or trying for a baby).
@@ -62,7 +78,7 @@ export function conceptionOdds(k) {
     if (!base) return 0;
     let mult = contraMult(C().contraception[k]);
     if (S().tryingMode && e.trying?.on && mult > 0) mult = 1;     // actively trying: protection set aside (sterile stays 0)
-    return Math.max(0, Math.min(1, base * mult * H.tryingMult(k)));
+    return Math.max(0, Math.min(1, base * partnerFertility(k) * mult * H.tryingMult(k)));
 }
 
 function updateKnown(k) {
