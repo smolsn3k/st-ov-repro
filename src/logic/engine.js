@@ -50,8 +50,9 @@ export function phase(k) {
 export function naturalChance(k) {
     const p = phase(k);
     if (!p.fertility) return 0;                                       // pregnant, carrying eggs or recovering
-    const sub = p.id === 'lactating' ? 'calm' : H.cycleInfo(k).sub.replace(/^rut_/, 'heat_');     // the cycle stage (a rut uses the heat/rut values)
-    const v = Number(S().stageChance?.[sub] ?? S().stageChance?.calm ?? 0);
+    const sub = p.id === 'lactating' ? 'calm' : H.cycleInfo(k).sub;     // the cycle stage
+    const table = (roleOf(k) === 'alpha' ? S().stageChanceRut : S().stageChance) || {};     // omegas: heat stages, alphas: rut stages
+    const v = Number(table[sub] ?? table.calm ?? 0);
     return Math.max(0, Math.min(1, (v / 100) * personalFertility(k)));
 }
 

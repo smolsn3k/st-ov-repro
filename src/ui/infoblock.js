@@ -1,6 +1,6 @@
 // Chat infoblock: compact, collapsible status cards under (or above) the latest message.
 // DOM only; never written into the message or the prompt.
-import { S, C, trackedKeys, nameOf, PHYS, contraProtection, showDate, dateLabel, hasDate, fertilityWord } from '../core/core.js';
+import { S, C, trackedKeys, nameOf, PHYS, contraProtection, showDate, dateLabel, hasDate, fertilityWord, chanceWord } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
@@ -17,9 +17,14 @@ const roleWord = k => (PHYS[C().physiology[k]].role === 'omega' ? 'Omega' : 'Alp
 const OPEN_KEY = 'ovr_ib_open';
 let openSet;
 try { openSet = new Set(JSON.parse(localStorage.getItem(OPEN_KEY) || '[]')); } catch { openSet = new Set(); }
-const card = (key, iconCls, icon, title, badge, badgeCls, body, extraCls = '') => `<details class="ovr-ib ${extraCls}" data-key="${esc(key)}" ${openSet.has(key) ? 'open' : ''}>
-    <summary><div class="ovr-ib-header"><div class="ovr-ib-icon ${iconCls}">${ic(icon)}</div><span class="ovr-ib-title">${title}</span><span class="ovr-ib-badge ${badgeCls}">${badge}</span><div class="ovr-ib-chev">${ic('chevron-down')}</div></div></summary>
+const card = (key, iconCls, icon, title, badge, badgeCls, body, extraCls = '', sub = '') => `<details class="ovr-ib ${extraCls}" data-key="${esc(key)}" ${openSet.has(key) ? 'open' : ''}>
+    <summary><div class="ovr-ib-header"><div class="ovr-ib-icon ${iconCls}">${ic(icon)}</div><div class="ovr-ib-titlebox"><span class="ovr-ib-title">${title}</span>${sub ? `<div class="ovr-ib-subline"><span>${sub}</span></div>` : ''}</div><span class="ovr-ib-badge ${badgeCls}">${badge}</span><div class="ovr-ib-chev">${ic('chevron-down')}</div></div></summary>
     <div class="ovr-ib-c">${body}</div></details>`;
+// A visually separated block inside a card (the pregnancy, the clutch).
+const section = (cls, icon, title, hint, inner) => `<div class="ovr-ib-section ${cls}"><div class="ovr-ib-sechead">${ic(icon)} <b>${esc(title)}</b>${hint ? ` <small>${esc(hint)}</small>` : ''}</div>${inner}</div>`;
+const simple = () => S().fertilityMode === 'simple';
+// Fertility and conception as numbers (detailed) or words (simplified).
+const chanceText = (frac, withWord) => (simple() ? `${chanceWord(frac * 100)} chance` : `${+(frac * 100).toFixed(1)}%${withWord ? ` (${fertilityWord(frac * 100)})` : ''}`);
 
 function healthTile(k, reveal) {
     const h = C().entities[k].health;
@@ -34,16 +39,19 @@ function healthTile(k, reveal) {
 }
 
 // ── Cycle (heat/rut) card; also used for hidden pregnancies so the secret stays secret ──
-const pctOf = v => +(v * 100).toFixed(1);
+const D_CON = { condom: 'Barrier', pill: 'Hormonal', iud: 'IUD / implant', sterile: 'Sterile' };
 function cycleCard(k, hidden) {
-    const c = C(), e = c.entities[k], s = S(), L = s.cycleLength, Dn = s.heatDuration;
+    const c = C(), e = c.entities[k], s = S(), L = s.cycleLength, Dn = s.heatDuration, phys = PHYS[c.physiology[k]];
     const rawDay = hidden ? e.cycleDay + (e.pregnant ? e.days : e.egg.carryDays) : e.cycleDay;
     const info = H.cycleInfo(k, rawDay), day = Math.min(rawDay, L), delay = Math.max(0, rawDay - L);
     const fl = H.feelNow(k, { mood: info.mood, physical: info.physical, libidoText: info.libido });
-    const nm = PHYS[c.physiology[k]].role === 'omega' ? 'heat' : 'rut', Nm = nm[0].toUpperCase() + nm.slice(1);
+    const nm = phys.role === 'omega' ? 'heat' : 'rut', Nm = nm[0].toUpperCase() + nm.slice(1);
     const fc = H.heatForecast(k), sb = hidden ? null : e.setback, cause = sb ? H.setbackLabel(sb) : '';
-    const badge = delay > 0 ? `Late ${delay} d` : `${day}/${L} · ${info.label}`;
+    const badge = delay > 0 ? `Late ${delay} d` : `${day}/${L}`;
+    const sub = delay > 0 ? `${Nm} overdue` : info.label;
     const extra = [];
+    // An alpha sires: his fertility is only fertile or sterile. Only a female alpha can carry and gets a conception chance.
+    const sires = phys.role === 'alpha' && phys.sex === 'male';
     if (!hidden) {
         const inWin = e.cycleDay <= Dn && info.sub !== 'suppressed';
         if (inWin) extra.push(stat('calendar-day', 'pink', `${Nm} day`, `${e.cycleDay} of ${Dn}`));
@@ -51,11 +59,14 @@ function cycleCard(k, hidden) {
         else extra.push(stat('calendar-day', 'purple', `Next ${nm}`, `in ${fc.visible ? fc.actualIn : fc.expectedIn} d${fc.visible && fc.actualIn !== fc.expectedIn ? ' (delayed)' : ''}`));
         if (sb && !sb.resolved) extra.push(stat('triangle-exclamation', 'orange', 'Setback', esc(sb.known || s.infoblockShowHidden ? `${cause}, +${sb.shift} d${sb.known ? '' : ' (unknown to them)'}` : 'Cause unknown to them'), true));
         else if (sb?.resolved) extra.push(stat('circle-check', 'green', 'Setback over', esc(`${Nm} came ${sb.used} d late${cause && (sb.known || s.infoblockShowHidden) ? ` (${cause})` : ''}`), true));
-        const con = c.contraception[k], odds = E.conceptionOdds(k), tryingNow = s.tryingMode && e.trying?.on;
-        const pfr = E.partnerFertility(k), pf = Math.round(pfr * 100);
-        const why = [pfr === 0 ? 'partner sterile' : pf < 100 && `partner fertility ${pf}%`, con !== 'none' && !tryingNow && `${(D_CON[con] || con).toLowerCase()} −${contraProtection(con)}%`, c.suppressants[k] && 'suppressed', tryingNow && 'trying'].filter(Boolean).join(', ');
-        extra.push(stat('seedling', 'green', 'Conception', esc(`${pctOf(odds)}%${why ? ` (${why})` : ''}`)));
-        if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Contraception', esc(`${D_CON[con] || con} ${contraProtection(con)}%`)));
+        const con = c.contraception[k], tryingNow = s.tryingMode && e.trying?.on;
+        if (!sires) {
+            const pfr = E.partnerFertility(k), pf = Math.round(pfr * 100);
+            const prot = id => (simple() ? '' : ` −${contraProtection(id)}%`);
+            const why = [pfr === 0 ? 'partner sterile' : pf < 100 && (simple() ? 'partner less fertile' : `partner fertility ${pf}%`), con !== 'none' && !tryingNow && `${(D_CON[con] || con).toLowerCase()}${prot(con)}`, c.suppressants[k] && 'suppressed', tryingNow && 'trying'].filter(Boolean).join(', ');
+            extra.push(stat('seedling', 'green', 'Conception', esc(`${chanceText(E.conceptionOdds(k))}${why ? ` (${why})` : ''}`)));
+        }
+        if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Contraception', esc(simple() ? (D_CON[con] || con) : `${D_CON[con] || con} ${contraProtection(con)}%`)));
         if (c.suppressants[k]) extra.push(stat('pills', 'blue', 'Suppressants', 'On'));
         if (e.trying?.on && s.tryingMode) extra.push(stat('bullseye', 'pink', 'Trying', `${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'}`));
     } else if (delay > 0) extra.push(stat('calendar-xmark', 'orange', 'Delay', `${delay} d`));
@@ -63,67 +74,70 @@ function cycleCard(k, hidden) {
     if (t.result && E.phase(k)) extra.push(stat('vial', t.result === 'negative' ? 'blue' : 'pink', 'Test', esc(t.result)));
     const pct = Math.min(100, Math.round((rawDay / L) * 100));
     const lateNote = delay > 0 && !hidden && sb && !sb.resolved ? (sb.known ? `${Nm} is ${delay} day${delay === 1 ? '' : 's'} late: ${cause}.` : `${Nm} is ${delay} day${delay === 1 ? '' : 's'} late and nobody knows why.${s.infoblockShowHidden ? ` (Cause: ${cause}.)` : ''}`) : '';
+    const fertTile = hidden ? 'Undetermined' : sires ? (E.personalFertility(k) > 0 ? 'Fertile' : 'Sterile') : chanceText(E.naturalChance(k), true);
     const body = `<div class="ovr-ib-bar" style="--zone:${(Dn / L) * 100}%"><div class="ovr-ib-bar-fill cycle" style="width:${pct}%"></div></div>
-        <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(hidden ? 'Undetermined' : `${pctOf(E.naturalChance(k))}% (${fertilityWord(E.naturalChance(k) * 100)})`))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(lateNote || info.note))}</div>`;
-    return card(`c-${k}`, 'cycle', 'clock', `${esc(nameOf(k))} · ${roleWord(k)}`, esc(badge), 'cycle', body);
+        <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(fertTile))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(lateNote || info.note))}</div>`;
+    return card(`c-${k}`, 'cycle', 'clock', `${esc(nameOf(k))} · ${roleWord(k)}`, esc(badge), 'cycle', body, '', esc(sub));
 }
-const D_CON = { condom: 'Barrier', pill: 'Hormonal', iud: 'IUD / implant', sterile: 'Sterile' };
 
-// ── Pregnancy card ──
+// ── Pregnancy: the person's own status first, then a separated Pregnancy block, all inside their card ──
 function pregCard(k, reveal) {
     const c = C(), e = c.entities[k], s = S(), h = e.health, w = E.weeksOf(e), p = H.pregStatus(k), tri = E.trimester(w);
     const pct = Math.min(100, Math.round((w / s.termWeeks) * 100));
     const count = h.confirm.count || reveal ? `${e.fetusCount} ${e.fetusCount > 1 ? 'babies' : 'baby'}` : 'not confirmed';
     const sex = h.confirm.sex || reveal ? e.fetusSex.map(x => (x === 'M' ? 'boy' : 'girl')).join(', ') : 'unknown';
-    const ht = healthTile(k, reveal), ds = s.infoblockDetails;
-    const second = H.secondParentName(k), fl = H.feelFor(k);
-    const tiles = [
-        hasDate() ? stat('clock', 'purple', 'Story time', esc(`${dateLabel()}${c.date.time ? ' ' + c.date.time : ''}`)) : '',
+    const ht = healthTile(k, reveal), ds = s.infoblockDetails, fl = H.feelFor(k);
+    const person = [
+        stat('heart-pulse', 'green', 'Health', ht.html),
+        ds ? stat('face-smile', 'purple', 'Mood', esc(fl.mood)) : '',
+        ds ? stat('heart', 'blue', 'Physical', esc(fl.physical)) : '',
+        ds ? stat('fire', 'pink', 'Libido', esc(fl.libido)) : '',
+    ].filter(Boolean).join('');
+    const baby = [
         e.conceptionDate ? stat('calendar-day', 'pink', 'Conceived', esc(showDate(e.conceptionDate))) : '',
         stat('calendar', 'purple', 'Due', esc(showDate(E.dueDate(e)))),
         stat('baby', 'pink', 'Fetus', esc(`${count} (${sex})`)),
-        stat('user', 'blue', 'Other parent', esc(second)),
-        stat('heart-pulse', 'green', 'Health', ht.html),
+        stat('user', 'blue', 'Other parent', esc(H.secondParentName(k))),
         ds ? stat('ruler', 'blue', 'Size', esc(p.size)) : '',
-        ds ? stat('face-smile', 'purple', 'Mood', esc(fl.mood)) : '',
-        ds ? stat('heart', 'blue', 'Physical', esc(fl.physical)) : '',
         ds ? stat('weight-scale', 'orange', 'Weight', esc(p.weight)) : '',
-        ds ? stat('fire', 'pink', 'Libido', esc(fl.libido)) : '',
         ds ? stat('hand', 'purple', 'Movement', esc(p.movement)) : '',
         ds ? stat('droplet', 'orange', 'Swelling', esc(p.swelling)) : '',
         ds ? stat('bolt', 'pink', 'Contractions', esc(p.braxton)) : '',
         ds ? stat('baby', 'blue', 'Position', esc(p.position)) : '',
     ].filter(Boolean).join('');
     const notes = (ds ? note(esc(p.symptoms.join(' · '))) : '') + (ht.names.length ? note(`${ic('triangle-exclamation')} ${esc(ht.names.join(', '))}`, 'rec') : '') + (ds ? note(`${ic('lightbulb')} ${esc(p.advice)}`, 'rec') : '');
-    const body = `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill pregnancy" style="width:${pct}%"></div></div><div class="ovr-ib-grid">${tiles}${notes}</div>`;
-    return card(`p-${k}`, 'pregnancy', 'heart', `${esc(nameOf(k))} · Pregnancy`, `${w}/${s.termWeeks} wk`, 'pregnancy', body);
+    const when = hasDate() ? `<div class="ovr-ib-meta">${ic('clock')} ${esc(dateLabel())}${c.date.time ? ' · ' + esc(c.date.time) : ''}</div>` : '';
+    const body = `${when}<div class="ovr-ib-grid">${person}</div>${section('pregnancy', 'heart', 'Pregnancy', `week ${w} of ${s.termWeeks} · trimester ${tri}`, `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill pregnancy" style="width:${pct}%"></div></div><div class="ovr-ib-grid">${baby}${notes}</div>`)}`;
+    return card(`p-${k}`, 'pregnancy', 'heart', `${esc(nameOf(k))} · ${roleWord(k)}`, `${w}/${s.termWeeks} wk`, 'pregnancy', body, '', `Pregnant · trimester ${tri}`);
 }
 
-// ── Clutch / incubation card ──
+// ── Clutch / incubation: same idea, a separated Clutch block inside their card ──
 function eggCard(k, reveal) {
     const c = C(), e = c.entities[k], s = S(), g = e.egg, h = e.health;
     const incub = g.stage === 'incubating' || g.stage === 'hatch_due';
     const cur = incub ? g.incubDays : g.carryDays, max = incub ? s.eggIncubationDays : s.eggCarryDays;
-    const ht = healthTile(k, reveal), ds = s.infoblockDetails;
-    const tiles = [
+    const ht = healthTile(k, reveal), ds = s.infoblockDetails, fl = H.feelFor(k);
+    const person = [
+        stat('heart-pulse', 'green', 'Health', ht.html),
+        ds ? stat('face-smile', 'purple', 'Mood', esc(fl.mood)) : '',
+        ds ? stat('heart', 'blue', 'Physical', esc(fl.physical)) : '',
+        ds && incub ? stat('temperature-half', 'orange', 'Needs', 'Warmth, guarding the nest') : '',
+    ].filter(Boolean).join('');
+    const clutch = [
         stat('egg', 'pink', 'Eggs', esc(`${h.confirm.count || reveal || g.laid ? g.count : 'several'}${g.laid ? `, ${g.laid} laid` : ''}`)),
         stat('house', 'orange', 'Nest', esc(e.nest.state)),
         stat('user', 'blue', 'Other parent', esc(H.secondParentName(k))),
-        stat('heart-pulse', 'green', 'Health', ht.html),
         ds ? stat('flag', 'purple', 'Stage', esc(g.stage.replace('_', ' '))) : '',
-        ds && g.stage === 'gravid' ? stat('face-smile', 'purple', 'Mood', 'Restless, nesting') : '',
-        ds && incub ? stat('temperature-half', 'orange', 'Needs', 'Warmth, guarding the nest') : '',
     ].filter(Boolean).join('');
     const notes = ht.names.length ? note(`${ic('triangle-exclamation')} ${esc(ht.names.join(', '))}`, 'rec') : '';
-    const body = `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill egg" style="width:${Math.min(100, (cur / max) * 100)}%"></div></div><div class="ovr-ib-grid">${tiles}${notes}</div>`;
-    return card(`e-${k}`, 'egg', 'egg', `${esc(nameOf(k))} · ${incub ? 'Incubation' : 'Clutch'}`, `${cur}/${max} d`, 'egg', body);
+    const body = `<div class="ovr-ib-grid">${person}</div>${section('egg', 'egg', incub ? 'Incubation' : 'Clutch', `day ${cur} of ${max}`, `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill egg" style="width:${Math.min(100, (cur / max) * 100)}%"></div></div><div class="ovr-ib-grid">${clutch}${notes}</div>`)}`;
+    return card(`e-${k}`, 'egg', 'egg', `${esc(nameOf(k))} · ${roleWord(k)}`, `${cur}/${max} d`, 'egg', body, '', incub ? 'Incubating' : 'Carrying a clutch');
 }
 
 // ── Postpartum / recovery card ──
 function postCard(k) {
     const fl = H.feelFor(k);
     const e = C().entities[k], s = S(), len = H.postpartumLength(k), st = H.postpartumStage(k), inRec = e.postpartumDays <= len, ds = s.infoblockDetails;
-    const idx = inRec ? Math.max(0, D.POSTPARTUM[e.postpartum.method]?.findIndex(x => x.label === st?.label) ?? 0) : 3;
     const how = e.postpartum.method === 'csection' ? 'C-section' : e.postpartum.method === 'laid' ? 'After laying' : 'Natural birth';
     const tiles = [
         stat('heart-pulse', 'green', 'Recovery', esc(inRec ? (st?.label || 'Recovering') : 'Complete')),
@@ -135,7 +149,7 @@ function postCard(k) {
         ds ? stat('heart', 'blue', 'Physical', esc(fl.physical)) : '',
     ].filter(Boolean).join('');
     const body = `${inRec ? `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill baby" style="width:${Math.min(100, (e.postpartumDays / len) * 100)}%"></div></div>` : ''}<div class="ovr-ib-grid">${tiles}${ds && inRec && st ? note(esc(st.sym.join(' · '))) : ''}</div>`;
-    return card(`r-${k}`, 'cycle', 'heart-pulse', `${esc(nameOf(k))} · Recovery`, inRec ? `Day ${e.postpartumDays}/${len}` : 'Lactating', 'cycle', body);
+    return card(`r-${k}`, 'cycle', 'heart-pulse', `${esc(nameOf(k))} · ${roleWord(k)}`, inRec ? `Day ${e.postpartumDays}/${len}` : 'Lactating', 'cycle', body, '', inRec ? 'Recovery' : 'Lactation');
 }
 
 function carrierCard(k) {

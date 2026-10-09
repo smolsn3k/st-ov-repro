@@ -1,5 +1,5 @@
 // Settings panel (Extensions drawer): global settings, this-chat settings, status cards, children, family tree, history.
-import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, contraLabel, contraProtection, trackedKeys, nameOf, hooks, showDate, dateLabel, hasDate, STAGES, fertilityWord } from '../core/core.js';
+import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, contraLabel, contraProtection, trackedKeys, nameOf, hooks, showDate, dateLabel, hasDate, STAGES, RUT_STAGES, LEVELS, nearestLevel, chanceWord, fertilityWord } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
@@ -115,7 +115,13 @@ function card(k) {
     const head = `<div class="ovr-card-head"><div><b>${esc(nameOf(k))}</b> <span class="ovr-pill">${phys.label}</span> <span class="ovr-pill soft">${live ? 'live birth' : 'oviposition'}</span></div><span class="ovr-badge ${BADGE[ph.id] || 'calm'}">${esc(ph.label)}</span></div>`;
     const top = [];
     if (prog) top.push(`${bar(prog[0], prog[1], BADGE[ph.id] || '')}<small class="ovr-dim">${prog[2]}</small>`);
-    if (ph.fertility > 0) { const nat = +(E.naturalChance(k) * 100).toFixed(1), eff = +(E.conceptionOdds(k) * 100).toFixed(1); const pfr = E.partnerFertility(k), pf = Math.round(pfr * 100); top.push(`<small>Fertility (unprotected): <b>${nat}%</b> ${esc(fertilityWord(nat))}${pfr === 0 ? ' · other parent sterile' : pf < 100 ? ` · other parent ${pf}%` : ''} · Conception (with contraception): <b>${eff}%</b> per qualifying event</small>`); }
+    if (ph.fertility > 0) {
+        const nat = +(E.naturalChance(k) * 100).toFixed(1), eff = +(E.conceptionOdds(k) * 100).toFixed(1), pfr = E.partnerFertility(k), pf = Math.round(pfr * 100), simpleMode = s.fertilityMode === 'simple';
+        const sires = PHYS[c.physiology[k]].role === 'alpha' && PHYS[c.physiology[k]].sex === 'male';
+        top.push(sires ? `<small>Fertility: <b>${E.personalFertility(k) > 0 ? 'fertile' : 'sterile'}</b> (an alpha sires, he only carries if you make him)</small>`
+            : simpleMode ? `<small>Fertility: <b>${chanceWord(nat)} chance</b>${pfr === 0 ? ' · other parent sterile' : pf < 100 ? ' · other parent less fertile' : ''} · Conception: <b>${chanceWord(eff)} chance</b></small>`
+            : `<small>Fertility (unprotected): <b>${nat}%</b> ${esc(fertilityWord(nat))}${pfr === 0 ? ' · other parent sterile' : pf < 100 ? ` · other parent ${pf}%` : ''} · Conception (with contraception): <b>${eff}%</b> per qualifying event</small>`);
+    }
     if (!carrying && !e.postpartumDays) { const sy = H.phaseSymptoms(k, ph.id, 3); if (sy.length) top.push(`<small class="ovr-dim">${esc(sy.join(' · '))}</small>`); }
     if (e.postpartumDays > 0) { const st = H.postpartumStage(k); if (st) top.push(`<small class="ovr-dim">${esc(st.label)}: ${esc(st.sym.slice(0, 3).join(' · '))}</small>`); }
     if (!(carrying && !e.known)) { const fl = H.feelFor(k); top.push(`<small>Mood: <b>${esc(fl.mood)}</b> · Physical: <b>${esc(fl.physical)}</b> · Libido: <b>${esc(fl.libido)}</b>${fl.observed.mood || fl.observed.physical || fl.observed.libido ? ' <span class="ovr-dim">(from the story)</span>' : ''}</small>`); }
@@ -234,9 +240,15 @@ export function render() {
             ${pf.length ? '' : '<small class="ovr-dim">No Connection Manager profiles found; the main API is used.</small>'}
             <div class="ovr-switches">${chk('autoAnalyze', 'Analyze messages for events')}${chk('smartFilter', 'Only analyze when the text looks relevant')}${chk('trackFeelings', 'Track mood, physical state and libido from the chat')}</div>${grid(numField('analyzeDepth', 'Messages sent to analyzer', 1, 10), numField('feelInterval', s.detectMode === 'both' ? 'Backup mood check every N messages (only when a reply has no tags)' : 'Mood check every N messages', 1, 50), numField('feelDays', 'Mood stays valid, story days', 1, 30), numField('dateScanDepth', 'Messages scanned for tags and dates', 1, 30))}`,
         cycle: `${grid(numField('cycleLength', 'Cycle length, days', 10, 120), numField('heatDuration', 'Heat/rut duration, days', 1, 14))}
-            <small class="ovr-dim"><b>Fertility</b> by stage: the chance of conceiving per qualifying event with no protection. <b>Conception</b> is that fertility lowered by the contraception's protection (below). Suppressants only stop the heat/rut, so a suppressed heat uses the Suppressed value.</small>
+            <label class="ovr-field wide"><span>Fertility display and settings</span><select class="text_pole" data-g="fertilityMode"><option value="detailed" ${s.fertilityMode !== 'simple' ? 'selected' : ''}>Detailed: percentages</option><option value="simple" ${s.fertilityMode === 'simple' ? 'selected' : ''}>Simplified: words (high chance in heat, low outside)</option></select></label>
+            ${s.fertilityMode === 'simple' ? `<small class="ovr-dim">Simplified: pick how likely a pregnancy is during a heat/rut and outside it. The popup shows words instead of numbers. Detailed mode keeps a percentage for every stage.</small>
+            ${grid(...[['heat', 'During a heat/rut', s.stageChance.heat_peak], ['outside', 'Outside a heat/rut', s.stageChance.calm]].map(([id, label, cur]) => `<label class="ovr-field"><span>${label}</span><select class="text_pole" data-simple="${id}">${LEVELS.map(([lv, name]) => `<option value="${lv}" ${nearestLevel(cur) === lv ? 'selected' : ''}>${name} chance</option>`).join('')}</select></label>`))}`
+            : `<small class="ovr-dim"><b>Fertility</b> by stage: the chance of conceiving per qualifying event with no protection. <b>Conception</b> is that fertility lowered by the contraception's protection (below). Suppressants only stop the heat/rut, so a suppressed heat uses the Suppressed value. Omegas use the heat table; an alpha only matters here if he carries, and then uses the rut table.</small>
+            <small><b>Heat (omega)</b></small>
             ${grid(...STAGES.map(([id, label]) => `<label class="ovr-field"><span>${esc(label)}, %</span><input type="number" class="text_pole" data-stage="${id}" min="0" max="100" step="0.5" value="${s.stageChance[id]}"></label>`))}
-            ${grid(...['condom', 'pill', 'iud'].map(id => `<label class="ovr-field"><span>${esc(CONTRA[id].label)}, %</span><input type="number" class="text_pole" data-prot="${id}" min="0" max="100" value="${contraProtection(id)}"></label>`))}
+            <small><b>Rut (alpha)</b></small>
+            ${grid(...RUT_STAGES.map(([id, label]) => `<label class="ovr-field"><span>${esc(label)}, %</span><input type="number" class="text_pole" data-stage="rut:${id}" min="0" max="100" step="0.5" value="${s.stageChanceRut[id]}"></label>`))}`}
+            ${s.fertilityMode === 'simple' ? '' : grid(...['condom', 'pill', 'iud'].map(id => `<label class="ovr-field"><span>${esc(CONTRA[id].label)}, %</span><input type="number" class="text_pole" data-prot="${id}" min="0" max="100" value="${contraProtection(id)}"></label>`))}
             <div class="ovr-switches">${chk('tryingMode', 'Trying-for-a-baby mode')}${chk('disruptionsEnabled', 'Cycle disruptions')}</div>`,
         live: `${grid(numField('termWeeks', 'Pregnancy length, weeks', 8, 60), numField('twinsChance', 'Twins chance, %', 0, 100, 0.1), numField('tripletsChance', 'Triplets chance, %', 0, 100, 0.1), numField('doctorCooldown', 'Visit cooldown, days', 0, 60), numField('complicationChance', 'Complication multiplier, %', 0, 300), numField('fetalDiseaseChance', 'Fetal disease chance, %', 0, 100, 0.5))}
             <div class="ovr-switches">${chk('complicationsEnabled', 'Pregnancy complications')}${chk('fetalDiseasesEnabled', 'Fetal diseases')}</div>`,
@@ -319,8 +331,17 @@ export function mount() {
         if (e.type === 'change') saveS();
     });
     $(document).on('change', `${root} [data-stage]`, e => {
-        const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round((Number(el.value) || 0) * 2) / 2));
-        S().stageChance[el.dataset.stage] = v; saveS(); refresh();
+        const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round((Number(el.value) || 0) * 2) / 2)), id = el.dataset.stage;
+        if (id.startsWith('rut:')) S().stageChanceRut[id.slice(4)] = v; else S().stageChance[id] = v;
+        saveS(); refresh();
+    });
+    // Simplified mode: one level for "in heat/rut", one for "outside"; both tables follow.
+    $(document).on('change', `${root} [data-simple]`, e => {
+        const el = e.currentTarget, pct = (LEVELS.find(l => l[0] === el.value) || LEVELS[0])[2], s2 = S();
+        const keys = el.dataset.simple === 'heat' ? [['stageChance', ['heat_early', 'heat_peak', 'heat_late']], ['stageChanceRut', ['rut_early', 'rut_peak', 'rut_late']]]
+            : [['stageChance', ['post', 'calm', 'pre', 'delayed', 'suppressed']], ['stageChanceRut', ['post', 'calm', 'pre', 'delayed', 'suppressed']]];
+        for (const [tbl, ids] of keys) for (const id of ids) s2[tbl][id] = pct;
+        saveS(); refresh();
     });
     $(document).on('change', `${root} [data-prot]`, e => {
         const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round(Number(el.value) || 0)));

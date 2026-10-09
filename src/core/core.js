@@ -54,7 +54,7 @@ export const contraProtection = id => {
     return Math.max(0, Math.min(100, Number.isFinite(v) ? v : CONTRA[id].prot));
 };
 export const contraMult = id => 1 - contraProtection(id) / 100;
-export const contraLabel = id => (id === 'none' || !CONTRA[id] ? CONTRA.none.label : `${CONTRA[id].label} (${contraProtection(id)}%)`);
+export const contraLabel = id => (id === 'none' || !CONTRA[id] ? CONTRA.none.label : S().fertilityMode === 'simple' ? CONTRA[id].label : `${CONTRA[id].label} (${contraProtection(id)}%)`);
 
 export const DEFAULTS = {
     enabled: true,
@@ -76,7 +76,9 @@ export const DEFAULTS = {
     heatDuration: 5,
     // Fertility: % chance of conceiving per qualifying event with NO protection, for each stage of the cycle.
     // Conception = fertility lowered by the contraception's protection (see `protection`). Suppressed and late heats use their own values.
-    stageChance: { heat_early: 90, heat_peak: 99, heat_late: 90, post: 5, calm: 1, pre: 4, delayed: 2, suppressed: 2 },
+    stageChance: { heat_early: 90, heat_peak: 99, heat_late: 90, post: 5, calm: 1, pre: 4, delayed: 2, suppressed: 2 },   // omega: heat stages
+    stageChanceRut: { rut_early: 10, rut_peak: 15, rut_late: 10, post: 1, calm: 1, pre: 2, delayed: 1, suppressed: 1 },     // alpha: rut stages (only matters if an alpha carries)
+    fertilityMode: 'detailed', // detailed = percentages everywhere; simple = words (high chance in heat, low outside)
     termWeeks: 40,
     twinsChance: 3,            // %
     tripletsChance: 0.3,       // %
@@ -271,3 +273,13 @@ export const STAGES = [
 ];
 // A word for a fertility percentage, so the label can never disagree with the number.
 export const fertilityWord = pct => (pct <= 0 ? 'None' : pct >= 35 ? 'Peak' : pct >= 15 ? 'High' : pct >= 5 ? 'Moderate' : pct >= 1.5 ? 'Low' : 'Very low');
+
+export const RUT_STAGES = [
+    ['rut_early', 'Rut: start'], ['rut_peak', 'Rut: peak'], ['rut_late', 'Rut: end'],
+    ['post', 'Post-rut'], ['calm', 'Between ruts'], ['pre', 'Pre-rut'],
+    ['delayed', 'Late (overdue) rut'], ['suppressed', 'Suppressed rut'],
+];
+// Simplified mode: one level for "in heat/rut" and one for "outside", each stored as a percentage in the stage tables.
+export const LEVELS = [['very_high', 'Very high', 99], ['high', 'High', 85], ['moderate', 'Moderate', 50], ['low', 'Low', 15], ['very_low', 'Very low', 3], ['none', 'None', 0]];
+export const nearestLevel = pct => LEVELS.reduce((best, l) => (Math.abs(l[2] - pct) < Math.abs(best[2] - pct) ? l : best), LEVELS[0])[0];
+export const chanceWord = pct => (pct <= 0 ? 'None' : pct < 3 ? 'Very low' : pct < 12 ? 'Low' : pct < 35 ? 'Moderate' : pct < 70 ? 'High' : 'Very high');
