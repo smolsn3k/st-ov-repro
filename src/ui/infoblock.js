@@ -52,29 +52,31 @@ function cycleCard(k, hidden) {
     const extra = [];
     // An alpha sires: his fertility is only fertile or sterile. Only a female alpha can carry and gets a conception chance.
     const sires = phys.role === 'alpha' && phys.sex === 'male';
+    // A hidden pregnancy looks like an ordinary cycle (the numbers are what the cycle would read), so nothing gives it away.
+    const asStage = hidden ? info.sub : null, dayNow = hidden ? rawDay : e.cycleDay;
+    const inWin = dayNow <= Dn && info.sub !== 'suppressed';
+    if (inWin) extra.push(stat('calendar-day', 'pink', `${Nm} day`, `${dayNow} of ${Dn}`));
+    else if (delay > 0) extra.push(stat('calendar-xmark', 'orange', `${Nm} overdue`, `${delay} d`));
+    else { const nxt = hidden ? L - rawDay + 1 : (fc.visible ? fc.actualIn : fc.expectedIn); extra.push(stat('calendar-day', 'purple', `Next ${nm}`, `in ${nxt} d${!hidden && fc.visible && fc.actualIn !== fc.expectedIn ? ' (delayed)' : ''}`)); }
     if (!hidden) {
-        const inWin = e.cycleDay <= Dn && info.sub !== 'suppressed';
-        if (inWin) extra.push(stat('calendar-day', 'pink', `${Nm} day`, `${e.cycleDay} of ${Dn}`));
-        else if (delay > 0) extra.push(stat('calendar-xmark', 'orange', `${Nm} overdue`, `${delay} d`));
-        else extra.push(stat('calendar-day', 'purple', `Next ${nm}`, `in ${fc.visible ? fc.actualIn : fc.expectedIn} d${fc.visible && fc.actualIn !== fc.expectedIn ? ' (delayed)' : ''}`));
         if (sb && !sb.resolved) extra.push(stat('triangle-exclamation', 'orange', 'Setback', esc(sb.known || s.infoblockShowHidden ? `${cause}, +${sb.shift} d${sb.known ? '' : ' (unknown to them)'}` : 'Cause unknown to them'), true));
         else if (sb?.resolved) extra.push(stat('circle-check', 'green', 'Setback over', esc(`${Nm} came ${sb.used} d late${cause && (sb.known || s.infoblockShowHidden) ? ` (${cause})` : ''}`), true));
-        const con = c.contraception[k], tryingNow = s.tryingMode && e.trying?.on;
-        if (!sires) {
-            const pfr = E.partnerFertility(k), pf = Math.round(pfr * 100);
-            const prot = id => (simple() ? '' : ` −${contraProtection(id)}%`);
-            const why = [pfr === 0 ? 'partner sterile' : pf < 100 && (simple() ? 'partner less fertile' : `partner fertility ${pf}%`), con !== 'none' && !tryingNow && `${(D_CON[con] || con).toLowerCase()}${prot(con)}`, c.suppressants[k] && 'suppressed', tryingNow && 'trying'].filter(Boolean).join(', ');
-            extra.push(stat('seedling', 'green', 'Conception', esc(`${chanceText(E.conceptionOdds(k))}${why ? ` (${why})` : ''}`)));
-        }
-        if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Contraception', esc(simple() ? (D_CON[con] || con) : `${D_CON[con] || con} ${contraProtection(con)}%`)));
-        if (c.suppressants[k]) extra.push(stat('pills', 'blue', 'Suppressants', 'On'));
-        if (e.trying?.on && s.tryingMode) extra.push(stat('bullseye', 'pink', 'Trying', `${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'}`));
-    } else if (delay > 0) extra.push(stat('calendar-xmark', 'orange', 'Delay', `${delay} d`));
+    }
+    const con = c.contraception[k], tryingNow = s.tryingMode && e.trying?.on;
+    if (!sires) {
+        const pfr = E.partnerFertility(k), pf = Math.round(pfr * 100);
+        const prot = id => (simple() ? '' : ` −${contraProtection(id)}%`);
+        const why = [pfr === 0 ? 'partner sterile' : pf < 100 && (simple() ? 'partner less fertile' : `partner fertility ${pf}%`), con !== 'none' && !tryingNow && `${(D_CON[con] || con).toLowerCase()}${prot(con)}`, c.suppressants[k] && 'suppressed', tryingNow && 'trying'].filter(Boolean).join(', ');
+        extra.push(stat('seedling', 'green', 'Conception', esc(`${chanceText(E.conceptionOdds(k, asStage))}${why ? ` (${why})` : ''}`)));
+    }
+    if (con !== 'none') extra.push(stat('shield-heart', 'green', 'Contraception', esc(simple() ? (D_CON[con] || con) : `${D_CON[con] || con} ${contraProtection(con)}%`)));
+    if (c.suppressants[k]) extra.push(stat('pills', 'blue', 'Suppressants', 'On'));
+    if (e.trying?.on && s.tryingMode) extra.push(stat('bullseye', 'pink', 'Trying', `${e.trying.cycles} cycle${e.trying.cycles === 1 ? '' : 's'}`));
     const t = e.health.test;
     if (t.result && E.phase(k)) extra.push(stat('vial', t.result === 'negative' ? 'blue' : 'pink', 'Test', esc(t.result)));
     const pct = Math.min(100, Math.round((rawDay / L) * 100));
     const lateNote = delay > 0 && !hidden && sb && !sb.resolved ? (sb.known ? `${Nm} is ${delay} day${delay === 1 ? '' : 's'} late: ${cause}.` : `${Nm} is ${delay} day${delay === 1 ? '' : 's'} late and nobody knows why.${s.infoblockShowHidden ? ` (Cause: ${cause}.)` : ''}`) : '';
-    const fertTile = hidden ? 'Undetermined' : sires ? (E.personalFertility(k) > 0 ? 'Fertile' : 'Sterile') : chanceText(E.naturalChance(k), true);
+    const fertTile = sires ? (E.personalFertility(k) > 0 ? 'Fertile' : 'Sterile') : chanceText(E.naturalChance(k, asStage), true);
     const body = `<div class="ovr-ib-bar" style="--zone:${(Dn / L) * 100}%"><div class="ovr-ib-bar-fill cycle" style="width:${pct}%"></div></div>
         <div class="ovr-ib-grid">${stat('droplet', 'green', 'Fertility', esc(fertTile))}${stat('fire', 'pink', 'Libido', esc(fl.libido))}${stat('face-smile', 'purple', 'Mood', esc(fl.mood))}${stat('heart', 'blue', 'Physical', esc(fl.physical))}${extra.join('')}${note(esc(lateNote || info.note))}</div>`;
     return card(`c-${k}`, 'cycle', 'clock', `${esc(nameOf(k))} · ${roleWord(k)}`, esc(badge), 'cycle', body, '', esc(sub));

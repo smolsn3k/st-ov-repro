@@ -47,10 +47,13 @@ export function phase(k) {
 }
 
 // Fertility as a number: the chance of conceiving per qualifying event with no protection at all.
-export function naturalChance(k) {
-    const p = phase(k);
-    if (!p.fertility) return 0;                                       // pregnant, carrying eggs or recovering
-    const sub = p.id === 'lactating' ? 'calm' : H.cycleInfo(k).sub;     // the cycle stage
+export function naturalChance(k, asStage = null) {     // asStage: read the table as if the cycle were in that stage (used for the apparent, hidden-pregnancy display)
+    let sub = asStage;
+    if (!sub) {
+        const p = phase(k);
+        if (!p.fertility) return 0;                                   // pregnant, carrying eggs or recovering
+        sub = p.id === 'lactating' ? 'calm' : H.cycleInfo(k).sub;     // the cycle stage
+    }
     const table = (roleOf(k) === 'alpha' ? S().stageChanceRut : S().stageChance) || {};     // omegas: heat stages, alphas: rut stages
     const v = Number(table[sub] ?? table.calm ?? 0);
     return Math.max(0, Math.min(1, (v / 100) * personalFertility(k)));
@@ -73,9 +76,9 @@ export function partnerFertility(k) {
 }
 
 // Conception: the chance that actually applies, after contraception (or trying for a baby).
-export function conceptionOdds(k) {
-    const p = phase(k), e = ent(k);
-    const base = naturalChance(k);
+export function conceptionOdds(k, asStage = null) {
+    const e = ent(k);
+    const base = naturalChance(k, asStage);
     if (!base) return 0;
     let mult = contraMult(C().contraception[k]);
     if (S().tryingMode && e.trying?.on && mult > 0) mult = 1;     // actively trying: protection set aside (sterile stays 0)

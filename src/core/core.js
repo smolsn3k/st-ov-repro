@@ -267,9 +267,9 @@ export const hasDate = () => toDays(C().date.current) !== null;
 
 // Stages of the cycle that have their own fertility percentage, in cycle order.
 export const STAGES = [
-    ['heat_early', 'Heat/rut: start'], ['heat_peak', 'Heat/rut: peak'], ['heat_late', 'Heat/rut: end'],
-    ['post', 'Post-heat/rut'], ['calm', 'Between heats/ruts'], ['pre', 'Pre-heat/rut'],
-    ['delayed', 'Late (overdue) heat/rut'], ['suppressed', 'Suppressed heat/rut'],
+    ['heat_early', 'Heat: start'], ['heat_peak', 'Heat: peak'], ['heat_late', 'Heat: end'],
+    ['post', 'Post-heat'], ['calm', 'Between heats'], ['pre', 'Pre-heat'],
+    ['delayed', 'Late heat (overdue)'], ['suppressed', 'Suppressed heat'],
 ];
 // A word for a fertility percentage, so the label can never disagree with the number.
 export const fertilityWord = pct => (pct <= 0 ? 'None' : pct >= 35 ? 'Peak' : pct >= 15 ? 'High' : pct >= 5 ? 'Moderate' : pct >= 1.5 ? 'Low' : 'Very low');
@@ -277,7 +277,7 @@ export const fertilityWord = pct => (pct <= 0 ? 'None' : pct >= 35 ? 'Peak' : pc
 export const RUT_STAGES = [
     ['rut_early', 'Rut: start'], ['rut_peak', 'Rut: peak'], ['rut_late', 'Rut: end'],
     ['post', 'Post-rut'], ['calm', 'Between ruts'], ['pre', 'Pre-rut'],
-    ['delayed', 'Late (overdue) rut'], ['suppressed', 'Suppressed rut'],
+    ['delayed', 'Late rut (overdue)'], ['suppressed', 'Suppressed rut'],
 ];
 // Simplified mode: one level for "in heat/rut" and one for "outside", each stored as a percentage in the stage tables.
 export const LEVELS = [['very_high', 'Very high', 99], ['high', 'High', 85], ['moderate', 'Moderate', 50], ['low', 'Low', 15], ['very_low', 'Very low', 3], ['none', 'None', 0]];
