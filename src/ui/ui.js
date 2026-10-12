@@ -301,19 +301,21 @@ export function render() {
     if (sp) sp.scrollTop = top;
 }
 
-export function refresh() { updatePrompt(); render(); renderInfoblock(); }
+export function refresh() { updatePrompt(); render(); renderQuick(); renderInfoblock(); }
 
 function setPath(obj, path, v) { const p = path.split('.'); const last = p.pop(); p.reduce((o, k) => o[k] ??= (/^\d+$/.test(k) ? [] : {}), obj)[last] = v; }
 const val = el => (el.type === 'checkbox' ? el.checked : el.type === 'number' || el.dataset.num !== undefined ? Number(el.value) : el.value);
 const note = (t, type = 'info') => S().notifications && toastr[type](t, 'Omegaverse');
 const syncLock = c => { c.date.manualValue = c.date.manual ? c.date.current : null; c.date.manualText = c.date.manual ? c.date.text : ''; c.date.manualTime = c.date.manual ? c.date.time : null; };
 
-const LABELS = { clearsb: 'Cleared setback', analyzenow: 'Analyze now', shift: 'Date shift', addchild: 'Added child', analyzelooks: 'Appearance analysis', adv: 'Advance time', conceive: 'Conception', birth: 'Birth', lay: 'Laying eggs', hatch: 'Hatching', end: 'Ended', startpreg: 'Manual pregnancy start', disrupt: 'Disruption', visit: 'Visit', test: 'Test', reveal: 'Reveal', resolvec: 'Resolved complication', 'date-adv': 'Date change', 'date-only': 'Date change', fed: 'Fed', changed: 'Diaper changed', grow: 'Moved to older', delbaby: 'Removed child' };
+const LABELS = { qcycle: 'Cycle day', qpreg: 'Manual pregnancy start', qchild: 'Added child', clearsb: 'Cleared setback', analyzenow: 'Analyze now', shift: 'Date shift', addchild: 'Added child', analyzelooks: 'Appearance analysis', adv: 'Advance time', conceive: 'Conception', birth: 'Birth', lay: 'Laying eggs', hatch: 'Hatching', end: 'Ended', startpreg: 'Manual pregnancy start', disrupt: 'Disruption', visit: 'Visit', test: 'Test', reveal: 'Reveal', resolvec: 'Resolved complication', 'date-adv': 'Date change', 'date-only': 'Date change', fed: 'Fed', changed: 'Diaper changed', grow: 'Moved to older', delbaby: 'Removed child' };
 
 export function mount() {
     if ($('#ovr_root').length) return;
     $('#extensions_settings2').append(`<div id="ovr_root" class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Omegaverse Reproduction</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content ovr-scope" id="ovr_body"></div></div>`);
     const root = '#ovr_body';     // handlers are scoped to the body so the panel also works inside the popup
+    const ROOTS = ['#ovr_body', '#ovr_quick'];     // the wand quick menu uses the very same handlers, so both always agree
+    const onDoc = (ev, sel, fn) => ROOTS.forEach(r => $(document).on(ev, `${r} ${sel}`, fn));
     hooks.onBirth = openBirthDialog;
     hooks.onGrad = openGradDialog;
     applyCustomCss();
@@ -324,43 +326,43 @@ export function mount() {
         saveOpen();
     }, true);
 
-    $(document).on('change', `${root} [data-g]`, e => { const el = e.currentTarget; S()[el.dataset.g] = val(el); saveS(); applyCustomCss(); refresh(); });
-    $(document).on('input change', `${root} [data-gr]`, e => {
+    onDoc('change', '[data-g]', e => { const el = e.currentTarget; S()[el.dataset.g] = val(el); saveS(); applyCustomCss(); refresh(); });
+    onDoc('input change', '[data-gr]', e => {
         const el = e.currentTarget; S()[el.dataset.gr] = Number(el.value); applyCustomCss();
         $(`${root} [data-rv="${el.dataset.gr}"]`).text(`${el.value}%`);
         if (e.type === 'change') saveS();
     });
-    $(document).on('change', `${root} [data-stage]`, e => {
+    onDoc('change', '[data-stage]', e => {
         const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round((Number(el.value) || 0) * 2) / 2)), id = el.dataset.stage;
         if (id.startsWith('rut:')) S().stageChanceRut[id.slice(4)] = v; else S().stageChance[id] = v;
         saveS(); refresh();
     });
     // Simplified mode: one level for "in heat/rut", one for "outside"; both tables follow.
-    $(document).on('change', `${root} [data-simple]`, e => {
+    onDoc('change', '[data-simple]', e => {
         const el = e.currentTarget, pct = (LEVELS.find(l => l[0] === el.value) || LEVELS[0])[2], s2 = S();
         const keys = el.dataset.simple === 'heat' ? [['stageChance', ['heat_early', 'heat_peak', 'heat_late']], ['stageChanceRut', ['rut_early', 'rut_peak', 'rut_late']]]
             : [['stageChance', ['post', 'calm', 'pre', 'delayed', 'suppressed']], ['stageChanceRut', ['post', 'calm', 'pre', 'delayed', 'suppressed']]];
         for (const [tbl, ids] of keys) for (const id of ids) s2[tbl][id] = pct;
         saveS(); refresh();
     });
-    $(document).on('change', `${root} [data-prot]`, e => {
+    onDoc('change', '[data-prot]', e => {
         const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round(Number(el.value) || 0)));
         (S().protection ||= {})[el.dataset.prot] = v; saveS(); refresh();
     });
-    $(document).on('change', `${root} [data-c]`, e => { const el = e.currentTarget; setPath(C(), el.dataset.c, val(el)); saveC(); refresh(); });
-    $(document).on('change', `${root} [data-ent][data-path]`, e => {
+    onDoc('change', '[data-c]', e => { const el = e.currentTarget; setPath(C(), el.dataset.c, val(el)); saveC(); refresh(); });
+    onDoc('change', '[data-ent][data-path]', e => {
         const el = e.currentTarget; setPath(C().entities[el.dataset.ent], el.dataset.path, val(el));
         if (/^feel\./.test(el.dataset.path)) H.touchFeel(el.dataset.ent);
         if (/^babyNames\./.test(el.dataset.path)) { const a = C().entities[el.dataset.ent].babyNames; for (let i = 0; i < a.length; i++) a[i] = a[i] || ''; }
         saveC(); refresh();
     });
-    $(document).on('change', `${root} [data-ent][data-f]`, e => {
+    onDoc('change', '[data-ent][data-f]', e => {
         const el = e.currentTarget, ent = C().entities[el.dataset.ent], n = Math.max(0, Math.floor(Number(el.value) || 0));
         if (el.dataset.f === 'cycleDay') ent.cycleDay = Math.min(S().cycleLength, Math.max(1, n));
         if (el.dataset.f === 'weeks') ent.days = n * 7;
         saveC(); refresh();
     });
-    $(document).on('change', `${root} [data-baby]`, e => {
+    onDoc('change', '[data-baby]', e => {
         const el = e.currentTarget, b = C().family.babies.find(x => x.id === +el.dataset.baby);
         if (!b) return;
         const f = el.dataset.f, v = el.value.trim();
@@ -372,7 +374,7 @@ export function mount() {
         const c = C(); c.date.manual = e.currentTarget.checked; syncLock(c);
         if (c.date.manual) c.date.source = 'manual'; saveC(); refresh();
     });
-    $(document).on('click', `${root} [data-act]`, async e => {
+    onDoc('click', '[data-act]', async e => {
         const el = e.currentTarget, k = el.dataset.k, act = el.dataset.act, c = C(), n = nameOf(k || 'user');
         const done = msg => { if (msg) note(msg); saveC(); refresh(); };
         if (LABELS[act]) E.checkpoint(`${LABELS[act]}${k ? ' (' + n + ')' : ''}`);
@@ -428,6 +430,27 @@ export function mount() {
                 const b = E.addManualChild({ name: v('name'), sex: v('sex'), parent: v('parent'), otherParent: (v('other') || '').trim(), born, via: v('via'), method: v('method') });
                 return done(`Added ${labelOf(b)}`);
             }
+            case 'open-global': closeQuick(); openPopup('settings'); return;
+            case 'open-chat': closeQuick(); openPopup('chat'); return;
+            case 'qcycle': {
+                const e2 = c.entities[k], L = S().cycleLength, d = +el.dataset.n;
+                if (E.isCarrying(e2) || e2.postpartumDays > 0) return;
+                if (d > 0) E.advance(k, d);                                           // forward uses the normal cycle rules (setbacks, wrap-around)
+                else { e2.cycleDay = Math.max(1, e2.cycleDay + d); const sb = H.activeSetback(k); if (sb) sb.used = Math.max(0, Math.min(sb.shift, e2.cycleDay - L)); }
+                return done();
+            }
+            case 'qpreg': {
+                const who = $('#ovr_q_who').val(), wk = Math.max(0, Math.min(45, Math.floor(Number($('#ovr_q_wk').val()) || 0))), cnt = Math.max(1, Math.min(4, Math.floor(Number($('#ovr_q_cnt').val()) || 1))), p = ($('#ovr_q_other').val() || '').trim();
+                const cur = toDays(c.date.current);
+                if (!hasDate() || cur === null) return note('Set the story date first', 'warning');
+                return done(E.startManualPregnancy(who, cur - wk * 7, cnt, [], p) ? `${nameOf(who)}: pregnancy started (${wk} weeks)` : 'Could not start a pregnancy here');
+            }
+            case 'qchild': {
+                const whenText = ageToWhen($('#ovr_q_age').val()), born = whenText ? resolveWhen(whenText, toDays(c.date.current), S().dateOrder) : null;
+                if (whenText && born === null) return note('Could not read that age. Try newborn, 3 weeks, 6 months or 2 years', 'warning');
+                const b = E.addManualChild({ name: $('#ovr_q_name').val(), sex: $('#ovr_q_sex').val(), parent: $('#ovr_q_parent').val(), otherParent: ($('#ovr_q_other2').val() || '').trim(), born, via: 'birth', method: 'natural' });
+                return done(`Added ${labelOf(b)}`);
+            }
             case 'analyzelooks': {
                 note('Analyzing appearance...');
                 try {
@@ -459,12 +482,13 @@ export function closePopup() {
     document.removeEventListener('keydown', escClose, true);
     popupOpen = false;
 }
-const escClose = e => { if (e.key === 'Escape' && !$('.ovr-modal').length) { e.stopPropagation(); closePopup(); } };
+const escClose = e => { if (e.key === 'Escape' && !$('.ovr-modal').length) { e.stopPropagation(); if (quickOpen) closeQuick(); else closePopup(); } };
 
-export function openPopup() {
-    if (popupOpen) return closePopup();
+export function openPopup(focus) {
+    if (popupOpen && !focus) return closePopup();
     const body = $('#ovr_body');
     if (!body.length) return;
+    if (popupOpen) { openSecs.add(focus); saveOpen(); render(); focusSection(focus); return; }
     const pop = $(`<div id="ovr_popup" class="ovr-popup"><div class="ovr-popup-box"><div class="ovr-popup-head"><b><i class="fa-solid fa-venus-mars"></i> Omegaverse Reproduction</b><label class="ovr-popup-op" title="Popup opacity"><i class="fa-solid fa-droplet"></i><input type="range" id="ovr_pop_op" min="30" max="100" step="5" value="${S().popupOpacity}"></label><div class="ovr-popup-close menu_button" title="Close">&times;</div></div><div class="ovr-popup-body"></div></div></div>`);
     pop.data('prevDisplay', body[0].style.display);
     pop.find('.ovr-popup-body').append(body);
@@ -475,14 +499,95 @@ export function openPopup() {
     $('body').append(pop);
     document.addEventListener('keydown', escClose, true);
     popupOpen = true;
+    if (focus) { openSecs.add(focus); saveOpen(); }
     render();
+    if (focus) focusSection(focus);
 }
+const focusSection = id => setTimeout(() => document.querySelector(`#ovr_body details[data-sec="${id}"]`)?.scrollIntoView({ block: 'start' }), 30);
 
 function addWandButton(tries = 0) {
     if ($('#ovr_wand').length) return;
     const menu = $('#extensionsMenu');
     if (!menu.length) { if (tries < 20) setTimeout(() => addWandButton(tries + 1), 500); return; }
-    const item = $(`<div id="ovr_wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem" title="Open Omegaverse Reproduction"><div class="fa-solid fa-venus-mars extensionsMenuExtensionIcon"></div><span>OV Reproduction</span></div>`);
-    item.on('click', openPopup).on('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openPopup(); } });
+    const item = $(`<div id="ovr_wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem" title="Quick menu: cycle, contraception, suppressants, tests, add pregnancy or child"><div class="fa-solid fa-venus-mars extensionsMenuExtensionIcon"></div><span>OV Reproduction</span></div>`);
+    item.on('click', () => openQuick()).on('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openQuick(); } });
     menu.append(item);
+}
+
+
+// ── Wand quick menu: the most used controls, bound to the same state and handlers as the panel ──
+let quickOpen = false;
+const conOptions = cur => Object.keys(CONTRA).map(id => `<option value="${id}" ${id === cur ? 'selected' : ''}>${esc(contraLabel(id))}</option>`).join('');
+// "newborn", "3 weeks", "6 months", "2 years" -> "N days ago" for resolveWhen
+function ageToWhen(txt) {
+    const t = String(txt || '').trim().toLowerCase();
+    if (!t || /^(new ?born|today|now|0)$/.test(t)) return '';
+    const m = /^(\d+(?:\.\d+)?)\s*(d|days?|w|wks?|weeks?|m|mos?|months?|y|yrs?|years?)$/.exec(t);
+    if (!m) return t;
+    const n = parseFloat(m[1]), u = m[2];
+    return `${Math.round(/^d/.test(u) ? n : /^w/.test(u) ? n * 7 : /^m/.test(u) ? n * 30 : n * 365)} days ago`;
+}
+
+function quickCard(k) {
+    const s = S(), c = C(), e = c.entities[k], phys = PHYS[c.physiology[k]], ph = E.phase(k), L = s.cycleLength, era = H.era();
+    const paused = E.isCarrying(e) || e.postpartumDays > 0;
+    const cycle = paused
+        ? `<small class="ovr-dim">Cycle paused: ${esc(ph.label)}</small>`
+        : `<div class="ovr-inline ovr-stepper"><span>Cycle day</span><div class="menu_button ovr-btn" data-act="qcycle" data-k="${k}" data-n="-1">&minus;</div><input type="number" class="text_pole ovr-small" data-ent="${k}" data-f="cycleDay" min="1" max="${Math.max(L, e.cycleDay)}" value="${e.cycleDay}"><small>/ ${L}</small><div class="menu_button ovr-btn" data-act="qcycle" data-k="${k}" data-n="1">+</div></div><small class="ovr-dim">${esc(ph.label)}</small>`;
+    const test = era.test ? `<div class="menu_button ovr-btn" data-act="test" data-k="${k}"><i class="fa-solid fa-vial"></i> Take ${esc(era.test.name)}</div>` : `<div class="menu_button ovr-btn" data-act="visit" data-k="${k}"><i class="fa-solid fa-user-doctor"></i> Visit ${esc(H.practitioner())}</div>`;
+    return `<div class="ovr-card ovr-qcard"><div class="ovr-card-head"><div><b>${esc(nameOf(k))}</b> <span class="ovr-pill">${phys.label}</span></div></div>
+        ${cycle}
+        <label class="ovr-row"><span>Contraception</span><select class="text_pole" data-c="contraception.${k}">${conOptions(c.contraception[k])}</select></label>
+        <div class="ovr-switches"><label class="ovr-switch"><input type="checkbox" data-c="suppressants.${k}" ${c.suppressants[k] ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">Heat/rut suppressants</span></label></div>
+        <div class="ovr-btns">${test}</div></div>`;
+}
+
+function quickHtml() {
+    const nm = k => esc(nameOf(k));
+    return `<div class="ovr-btns ovr-quick-top">
+            <div class="menu_button ovr-btn" data-act="open-global"><i class="fa-solid fa-sliders"></i> Global settings</div>
+            <div class="menu_button ovr-btn" data-act="open-chat"><i class="fa-solid fa-comment-dots"></i> Chat settings</div></div>
+        <div class="ovr-switches col">${chk('notifications', 'Notifications')}${chk('tryingMode', 'Trying for a baby')}${chk('infoblockShowHidden', 'Show hidden pregnancies')}</div>
+        ${quickCard('user')}${quickCard('char')}
+        ${sec('q-preg', 'Add pregnancy', `<div class="ovr-grid">
+            <label class="ovr-field"><span>Who</span><select class="text_pole" id="ovr_q_who"><option value="user">${nm('user')}</option><option value="char">${nm('char')}</option></select></label>
+            <label class="ovr-field"><span>Weeks pregnant</span><input type="number" class="text_pole" id="ovr_q_wk" min="0" max="45" value="8"></label>
+            <label class="ovr-field"><span>Babies</span><input type="number" class="text_pole" id="ovr_q_cnt" min="1" max="4" value="1"></label>
+            <label class="ovr-field"><span>Other parent</span><input type="text" class="text_pole" id="ovr_q_other" placeholder="default: the other character"></label></div>
+            <div class="ovr-btns"><div class="menu_button ovr-btn" data-act="qpreg">Add pregnancy</div></div>`, 'ovr-sub')}
+        ${sec('q-child', 'Add child', `<div class="ovr-grid">
+            <label class="ovr-field"><span>Name</span><input type="text" class="text_pole" id="ovr_q_name" placeholder="optional"></label>
+            <label class="ovr-field"><span>Sex</span><select class="text_pole" id="ovr_q_sex"><option value="F">Girl</option><option value="M">Boy</option></select></label>
+            <label class="ovr-field"><span>Carried by</span><select class="text_pole" id="ovr_q_parent"><option value="user">${nm('user')}</option><option value="char">${nm('char')}</option></select></label>
+            <label class="ovr-field"><span>Age</span><input type="text" class="text_pole" id="ovr_q_age" value="newborn" placeholder="newborn, 3 weeks, 6 months, 2 years"></label>
+            <label class="ovr-field wide"><span>Other parent</span><input type="text" class="text_pole" id="ovr_q_other2" placeholder="default: the other character"></label></div>
+            <div class="ovr-btns"><div class="menu_button ovr-btn" data-act="qchild">Add child</div></div>`, 'ovr-sub')}`;
+}
+
+export function renderQuick() {
+    const box = $('#ovr_quick');
+    if (!box.length) return;
+    const keep = {};                                      // keep what was typed in the two add forms while other controls re-render
+    box.find('[id^="ovr_q_"]').each((_, el) => { keep[el.id] = el.value; });
+    box.html(quickHtml());
+    for (const [id, v] of Object.entries(keep)) { const el = document.getElementById(id); if (el) el.value = v; }
+}
+
+export function closeQuick() {
+    $('#ovr_qpop').remove();
+    document.removeEventListener('keydown', escClose, true);
+    quickOpen = false;
+}
+
+export function openQuick() {
+    if (quickOpen) return closeQuick();
+    if (popupOpen) closePopup();
+    const pop = $(`<div id="ovr_qpop" class="ovr-popup"><div class="ovr-popup-box ovr-quickbox"><div class="ovr-popup-head"><b><i class="fa-solid fa-venus-mars"></i> OV Reproduction</b><label class="ovr-popup-op" title="Popup opacity"><i class="fa-solid fa-droplet"></i><input type="range" id="ovr_pop_op" min="30" max="100" step="5" value="${S().popupOpacity}"></label><div class="ovr-popup-close menu_button" title="Close">&times;</div></div><div class="ovr-popup-body"><div id="ovr_quick" class="ovr-scope"></div></div></div></div>`);
+    pop.on('pointerdown', e => { if (e.target === pop[0]) closeQuick(); });
+    pop.find('#ovr_pop_op').on('input', e => { S().popupOpacity = Number(e.target.value); applyCustomCss(); }).on('change', () => saveS());
+    pop.find('.ovr-popup-close').on('click', closeQuick);
+    $('body').append(pop);
+    document.addEventListener('keydown', escClose, true);
+    quickOpen = true;
+    renderQuick();
 }

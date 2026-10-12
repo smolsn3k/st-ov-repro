@@ -163,3 +163,13 @@ details.ovr-ib .ovr-ib-titlebox .ovr-ib-title { flex: 0 1 auto; }
 /* fertility tables: one column for heat, one for rut */
 .ovr-scope .ovr-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .ovr-scope .ovr-col { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+
+/* wand quick menu */
+.ovr-quickbox { width: min(440px, 100%); }
+.ovr-scope .ovr-quick-top .ovr-btn { flex: 1 1 0; text-align: center; padding: 7px 10px; }
+.ovr-scope .ovr-switches.col { flex-direction: column; gap: 10px; margin: 6px 2px; }
+.ovr-scope .ovr-qcard { gap: 8px; }
+.ovr-scope .ovr-stepper { gap: 6px; }
+.ovr-scope .ovr-stepper > span { flex: 1 1 auto; font-size: .9em; }
+.ovr-scope .ovr-stepper .text_pole { flex: 0 0 64px !important; text-align: center; }
+.ovr-scope .ovr-stepper .ovr-btn { min-width: 34px; text-align: center; font-weight: 700; }
