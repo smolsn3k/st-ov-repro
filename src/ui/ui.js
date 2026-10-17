@@ -140,7 +140,7 @@ function card(k) {
     if (e.pregnant) {
         const p = H.pregStatus(k);
         const fetal = h.fetal ? `<small>Fetal condition: ${esc(D.FETAL_DISEASES.find(x => x.id === h.fetal.id).label)} (${h.fetal.known ? 'found at an exam' : 'not found yet'})</small>` : '';
-        pregBox = sec(`card-${k}-preg`, 'Pregnancy details', `<div class="ovr-kv"><span>Due</span><b>${showDate(E.dueDate(e))}</b><span>Trimester</span><b>${E.trimester(p.week)}</b><span>Baby size</span><b>${esc(p.size)}</b><span>Movement</span><b>${esc(p.movement)}</b><span>Position</span><b>${esc(p.position)}</b><span>Practice contractions</span><b>${esc(p.braxton)}</b><span>Swelling</span><b>${esc(p.swelling)}</b><span>Libido</span><b>${esc(p.libido)}</b><span>Weight gain</span><b>${esc(p.weight)}</b></div>
+        pregBox = sec(`card-${k}-preg`, 'Pregnancy details', `<div class="ovr-kv"><span>Conceived</span><b>${E.conceivedDay(e) !== null ? showDate(E.conceivedDay(e)) : `${p.week} weeks ago`}</b><span>Due</span><b>${E.dueDate(e) !== null ? showDate(E.dueDate(e)) : `in ${Math.max(0, S().termWeeks - p.week)} weeks`}</b><span>Trimester</span><b>${E.trimester(p.week)}</b><span>Baby size</span><b>${esc(p.size)}</b><span>Movement</span><b>${esc(p.movement)}</b><span>Position</span><b>${esc(p.position)}</b><span>Practice contractions</span><b>${esc(p.braxton)}</b><span>Swelling</span><b>${esc(p.swelling)}</b><span>Libido</span><b>${esc(p.libido)}</b><span>Weight gain</span><b>${esc(p.weight)}</b></div>
             <small>Sensations: ${esc(p.symptoms.join('; '))}</small><small>Advice: ${esc(p.advice)}</small>
             <small>Babies: <b>${e.fetusCount}</b> (${h.confirm.count ? 'confirmed' : 'not confirmed in story'}) · sex: <b>${esc(e.fetusSex.map(sexWord).join(', '))}</b> (${h.confirm.sex ? 'confirmed' : 'not confirmed'})</small>${fetal}`, 'ovr-inner');
     }
@@ -165,6 +165,12 @@ function card(k) {
     if (e.pregnant) {
         f.push(`<label class="ovr-field"><span>Weeks</span><input type="number" class="text_pole" data-ent="${k}" data-f="weeks" min="0" max="60" value="${E.weeksOf(e)}"></label>`);
         f.push(`<label class="ovr-field"><span>Delivery method</span><select class="text_pole" data-ent="${k}" data-path="deliveryMethod"><option value="natural" ${e.deliveryMethod === 'natural' ? 'selected' : ''}>Natural</option><option value="csection" ${e.deliveryMethod === 'csection' ? 'selected' : ''}>C-section</option></select></label>`);
+    }
+    if (e.pregnant) {
+        const cd = E.conceivedDay(e), dd = E.dueDate(e);
+        const shown = v => (v === null ? '' : esc(showDate(v)));
+        f.push(`<label class="ovr-field"><span>Conceived</span><input type="text" class="text_pole" data-pregdate="conceived" data-k="${k}" value="${shown(cd)}" placeholder="12 May, 20 weeks ago, today"></label>`);
+        f.push(`<label class="ovr-field"><span>Due</span><input type="text" class="text_pole" data-pregdate="due" data-k="${k}" value="${shown(dd)}" placeholder="12 Feb, in 20 weeks"></label>`);
     }
     f.push(`<label class="ovr-field"><span>Other parent</span>${ep(k, 'second.name', 'text', e.second.name, `placeholder="${esc(H.secondParentName(k))}"`)}</label>`);
     if (e.second.name?.trim()) f.push(`<label class="ovr-field"><span>Other parent</span><select class="text_pole" data-ent="${k}" data-path="second.fertility" data-num><option value="100" ${Number(e.second.fertility ?? 100) > 0 ? 'selected' : ''}>Fertile</option><option value="0" ${Number(e.second.fertility ?? 100) > 0 ? '' : 'selected'}>Sterile</option></select></label>`);
@@ -331,6 +337,15 @@ export function mount() {
         const el = e.currentTarget; S()[el.dataset.gr] = Number(el.value); applyCustomCss();
         $(`${root} [data-rv="${el.dataset.gr}"]`).text(`${el.value}%`);
         if (e.type === 'change') saveS();
+    });
+    onDoc('change', '[data-pregdate]', e => {
+        const el = e.currentTarget, k = el.dataset.k, c = C(), cur = toDays(c.date.current);
+        if (cur === null) { note('Set the story date first', 'warning'); return refresh(); }
+        const day = resolveWhen(el.value, cur, S().dateOrder);
+        if (day === null) { note('Could not read that date. Try 12 May, 20 weeks ago, in 8 weeks or today', 'warning'); return refresh(); }
+        E.checkpoint('Pregnancy dates');
+        E.setPregnancyDates(k, el.dataset.pregdate === 'due' ? { due: day } : { conceived: day });
+        saveC(); refresh();
     });
     onDoc('change', '[data-stage]', e => {
         const el = e.currentTarget, v = Math.max(0, Math.min(100, Math.round((Number(el.value) || 0) * 2) / 2)), id = el.dataset.stage;

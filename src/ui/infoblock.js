@@ -86,8 +86,9 @@ function cycleCard(k, hidden) {
 function pregCard(k, reveal) {
     const c = C(), e = c.entities[k], s = S(), h = e.health, w = E.weeksOf(e), p = H.pregStatus(k), tri = E.trimester(w);
     const pct = Math.min(100, Math.round((w / s.termWeeks) * 100));
-    const count = h.confirm.count || reveal ? `${e.fetusCount} ${e.fetusCount > 1 ? 'babies' : 'baby'}` : 'not confirmed';
-    const sex = h.confirm.sex || reveal ? e.fetusSex.map(x => (x === 'M' ? 'boy' : 'girl')).join(', ') : 'unknown';
+    const count = h.confirm.count || reveal ? `${e.fetusCount} ${e.fetusCount > 1 ? 'babies' : 'baby'}` : 'Unconfirmed';
+    const sex = h.confirm.sex || reveal ? e.fetusSex.map(x => (x === 'M' ? 'boy' : 'girl')).join(', ') : 'Unknown';
+    const cd = E.conceivedDay(e), dd = E.dueDate(e), weeksLeft = Math.max(0, s.termWeeks - w);
     const ht = healthTile(k, reveal), ds = s.infoblockDetails, fl = H.feelFor(k);
     const person = [
         stat('heart-pulse', 'green', 'Health', ht.html),
@@ -96,9 +97,10 @@ function pregCard(k, reveal) {
         ds ? stat('fire', 'pink', 'Libido', esc(fl.libido)) : '',
     ].filter(Boolean).join('');
     const baby = [
-        e.conceptionDate ? stat('calendar-day', 'pink', 'Conceived', esc(showDate(e.conceptionDate))) : '',
-        stat('calendar', 'purple', 'Due', esc(showDate(E.dueDate(e)))),
-        stat('baby', 'pink', 'Fetus', esc(`${count} (${sex})`)),
+        stat('calendar-day', 'pink', 'Conceived', esc(cd !== null ? showDate(cd) : `${w} weeks ago`)),
+        stat('calendar', 'purple', 'Due', esc(dd !== null ? showDate(dd) : `in ${weeksLeft} weeks`)),
+        stat('baby', 'pink', 'Babies', esc(count)),
+        stat('baby', 'blue', 'Sex', esc(sex)),
         stat('user', 'blue', 'Other parent', esc(H.secondParentName(k))),
         ds ? stat('ruler', 'blue', 'Size', esc(p.size)) : '',
         ds ? stat('weight-scale', 'orange', 'Weight', esc(p.weight)) : '',
@@ -109,7 +111,7 @@ function pregCard(k, reveal) {
     ].filter(Boolean).join('');
     const notes = (ds ? note(esc(p.symptoms.join(' · '))) : '') + (ht.names.length ? note(`${ic('triangle-exclamation')} ${esc(ht.names.join(', '))}`, 'rec') : '') + (ds ? note(`${ic('lightbulb')} ${esc(p.advice)}`, 'rec') : '');
     const when = hasDate() ? `<div class="ovr-ib-meta">${ic('clock')} ${esc(dateLabel())}${c.date.time ? ' · ' + esc(c.date.time) : ''}</div>` : '';
-    const body = `${when}<div class="ovr-ib-grid">${person}</div>${section('pregnancy', 'heart', 'Pregnancy', `week ${w} of ${s.termWeeks} · trimester ${tri}`, `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill pregnancy" style="width:${pct}%"></div></div><div class="ovr-ib-grid">${baby}${notes}</div>`)}`;
+    const body = `${when}<div class="ovr-ib-grid">${person}</div>${section('pregnancy', 'heart', 'Pregnancy', `${w}/${s.termWeeks} wk · trimester ${tri}`, `<div class="ovr-ib-bar"><div class="ovr-ib-bar-fill pregnancy" style="width:${pct}%"></div></div><div class="ovr-ib-grid">${baby}${notes}</div>`)}`;
     return card(`p-${k}`, 'pregnancy', 'heart', `${esc(nameOf(k))} · ${roleWord(k)}`, `${w}/${s.termWeeks} wk`, 'pregnancy', body, '', `Pregnant · trimester ${tri}`);
 }
 
