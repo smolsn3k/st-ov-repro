@@ -13,7 +13,33 @@ export { hooks };
 export const weeksOf = e => Math.floor(e.days / 7);
 export const trimester = w => (w < 14 ? 1 : w < 28 ? 2 : 3);
 export const isCarrying = e => e.pregnant || e.egg.stage !== 'none';
-export const dueDate = e => (e.conceptionDate ? addDays(e.conceptionDate, S().termWeeks * 7) : null);
+// Conception and due dates are derived from today and the gestation so far, so they can never drift away from the weeks
+// shown (a stored date went wrong whenever the story calendar was changed after the conception).
+export function conceivedDay(e) {
+    const cur = toDays(C().date.current);
+    if (e.pregnant && cur !== null) return cur - e.days;
+    return e.conceptionDate ?? null;
+}
+export function dueDate(e) {
+    const cur = toDays(C().date.current), term = S().termWeeks * 7;
+    if (e.pregnant && cur !== null) return cur + term - e.days;
+    const cd = toDays(e.conceptionDate);
+    return cd !== null ? cd + term : null;
+}
+// Editing the conception date or the due date moves the pregnancy to that stage (the weeks follow).
+export function setPregnancyDates(k, { conceived = null, due = null } = {}) {
+    const e = ent(k), cur = toDays(C().date.current);
+    if (!e.pregnant || cur === null) return false;
+    const term = S().termWeeks * 7;
+    let days = e.days;
+    if (conceived !== null) days = cur - conceived;
+    else if (due !== null) days = term - (due - cur);
+    e.days = Math.max(0, Math.min(term + 140, Math.round(days)));       // up to 20 weeks overdue
+    e.conceptionDate = cur - e.days;
+    H.tick(k); updateKnown(k);
+    log(k, `Pregnancy moved to week ${weeksOf(e)}`);
+    return true;
+}
 
 function log(k, text) {
     const e = ent(k);
