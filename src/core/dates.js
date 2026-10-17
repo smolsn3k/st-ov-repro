@@ -160,6 +160,12 @@ export function resolveWhen(text, cur, order = 'DMY') {
         const u = rel[2].toLowerCase(), mult = u[0] === 'w' ? 7 : u.startsWith('mon') ? 30 : 1;
         return toDays(cur) - Number(rel[1]) * mult;
     }
+    const ahead = /^in\s+(\d{1,5})\s*(d|day|days|w|wk|week|weeks|month|months)$/i.exec(t);
+    if (ahead) {
+        if (cur === null || cur === undefined) return null;
+        const u = ahead[2].toLowerCase(), mult = u[0] === 'w' ? 7 : u.startsWith('mon') ? 30 : 1;
+        return toDays(cur) + Number(ahead[1]) * mult;
+    }
     const full = extractDate(t, order);
     if (full) return toDays(full);
     const dn = /^\s*day\s*#?\s*(\d{1,6})\b/i.exec(t);
