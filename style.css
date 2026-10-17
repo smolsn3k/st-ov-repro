@@ -115,7 +115,7 @@ details.ovr-ib .ovr-ib-stat > div:last-child { min-width: 0; }
 details.ovr-ib .ovr-ib-si { width: 18px; height: 18px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 details.ovr-ib .ovr-ib-si i { font-size: 10px; color: var(--ib-accent); opacity: .9; }
 details.ovr-ib .ovr-ib-lbl { font-size: 9px; opacity: .55; line-height: 1.2; }
-details.ovr-ib .ovr-ib-val { font-size: 11px; font-weight: 600; line-height: 1.25; overflow-wrap: anywhere; }
+details.ovr-ib .ovr-ib-val { font-size: 11px; font-weight: 600; line-height: 1.25; overflow-wrap: break-word; word-break: normal; hyphens: manual; }
 details.ovr-ib .ovr-ib-warn { color: #e8a317; }
 details.ovr-ib .ovr-ib-note { grid-column: 1 / -1; padding: 6px 10px; border: 1px solid var(--ib-soft); border-radius: 10px; font-size: 10px; opacity: .75; line-height: 1.45; font-style: italic; }
 details.ovr-ib .ovr-ib-note.rec { font-style: normal; opacity: .9; }
