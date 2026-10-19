@@ -98,6 +98,7 @@ export const DEFAULTS = {
     infoblockOpacity: 100,     // % of the theme's own background tint for the chat infoblock
     accentSource: 'quote',     // quote | em | body | custom : which theme color drives the accent
     accentColor: '#9b87f5',    // used when accentSource is custom
+    haltAlphaRut: false,       // an alpha's rut is on hold while the omega (his partner) is pregnant, carrying eggs or recovering
     tryingMode: true,          // enables the "trying for a baby" control
     disruptionsEnabled: true,  // stress, illness etc. delay the next heat/rut
     inheritAppearance: true,

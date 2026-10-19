@@ -63,6 +63,7 @@ export function phase(k) {
     const r = role(k), name = r === 'omega' ? 'Heat' : 'Rut';
     const d = e.cycleDay, Dn = s.heatDuration, L = s.cycleLength;
     const suppressed = !!c.suppressants?.[k];
+    if (H.rutHalted(k)) return { id: 'paused', label: 'Rut on hold', fertility: 0.03 };
     if (d > L) return { id: 'late', label: `${name} late by ${d - L} d`, fertility: 0.03 };
     if (d <= Dn) {
         if (suppressed) return { id: 'suppressed', label: `${name} (suppressed), cycle ${d}/${L}`, fertility: 0.05 };
@@ -139,7 +140,7 @@ export function advance(k, days) {
             e.postpartumDays = 0; e.postpartum.lactating = false; e.cycleDay = 1 + Math.floor(Math.random() * 10);
             log(k, 'Recovered; cycle resumed');
         }
-    } else if (e.egg.stage === 'none') {
+    } else if (e.egg.stage === 'none' && !H.rutHalted(k)) {       // an alpha whose rut is on hold does not move through his cycle
         const L = s.cycleLength;
         for (let i = 0; i < days; i++) {
             if (e.cycleDay >= L) {

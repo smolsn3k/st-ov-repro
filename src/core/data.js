@@ -8,6 +8,7 @@ export const SYMPTOMS = {
     suppressed: ['muted, faint echoes of the usual symptoms', 'dulled scent and mild fatigue', 'occasional breakthrough warmth', 'a flat mood from the medication'],
     post: ['aching muscles and a deep tiredness', 'ravenous hunger and thirst', 'drowsiness and a need for long sleep', 'a soft, tender mood', 'faint warmth that is fading', 'wanting quiet and gentle contact'],
     late: ['uneasy waiting and counting days', 'tender, slightly bloated feeling', 'mood swings between worry and denial', 'restlessness without the usual build-up', 'a scent that feels off or flat', 'trouble settling, light sleep'],
+    paused: ['calm, steady attention on his mate', 'protective instincts without the rut\'s edge', 'no rut symptoms at all', 'a settled, reassuring scent'],
     quiet: ['steady energy and a calm mood', 'a normal appetite', 'stable temperature and scent', 'ordinary day-to-day sensations'],
 };
 
@@ -168,6 +169,7 @@ export const PHASE_INFO = {
         calm: mk('Very low', 'Normal', 'Steady, calm', 'Normal', 'Between ruts: calm, steady and in control. Baseline fertility is very low.'),
         pre: mk('Low, rising', 'Slightly raised', 'Restless, short-tempered', 'Warm, scent-aware', 'Rut is approaching: restlessness and heightened scent awareness.'),
         suppressed: mk('Low (suppressed)', 'Muted', 'Flat', 'Faint echoes, fatigue', 'Rut is suppressed by medication: only muted, faint symptoms.'),
+        paused: mk('Very low', 'Normal', 'Calm, protective', 'Normal', 'His rut is on hold while his mate is pregnant or recovering.'),
     },
     delayed: mk('Undetermined', 'Variable', 'Moody', 'Tender, tired', 'The cycle is running late. Go by how things feel in the scene.'),
 };
@@ -192,6 +194,7 @@ export const PHASE_ACT = {
         post: { story: 'just past a rut (post-rut)', act: 'drained, hungry and sleepy; calm again and a little sheepish; needs food, rest and quiet', others: 'the scent has settled and people can relax around them' },
         calm: { story: 'between ruts', act: 'calm, steady and in control', others: 'nothing unusual in their scent' },
         pre: { story: 'in the days before a rut (pre-rut)', act: 'edgy and restless: warmth, heightened scent, shorter patience and growing possessiveness; looks for a place to ride it out or stays close to a mate', others: 'a faint, rising musk; omegas near them may notice the change' },
+        paused: { story: 'resting: the rut is on hold while their mate is pregnant or recovering', act: 'calm, protective and attentive; stays close to their mate and the young; the rut simply does not come', others: 'a steady, reassuring scent' },
         suppressed: { story: 'on rut suppressants', act: 'dulled and muted: only faint echoes of a rut, tiredness and a flat mood', others: 'their scent is muted and hard to read' },
     },
     delayed: { story: 'overdue: the {nm} has not come when expected', act: 'uneasy: counts the days and cannot explain it; mood swings between worry and denial; thoughts turn to possible causes (stress, illness, medication, pregnancy)', others: 'people who know their rhythm notice the missing change and may ask about it' },

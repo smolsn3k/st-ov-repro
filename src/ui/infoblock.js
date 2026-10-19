@@ -47,15 +47,17 @@ function cycleCard(k, hidden) {
     const fl = H.feelNow(k, { mood: info.mood, physical: info.physical, libidoText: info.libido });
     const nm = phys.role === 'omega' ? 'heat' : 'rut', Nm = nm[0].toUpperCase() + nm.slice(1);
     const fc = H.heatForecast(k), sb = hidden ? null : e.setback, cause = sb ? H.setbackLabel(sb) : '';
-    const badge = delay > 0 ? `Late ${delay} d` : `${day}/${L}`;
-    const sub = delay > 0 ? `${Nm} overdue` : info.label;
+    const halted = !hidden && info.sub === 'paused';
+    const badge = halted ? 'On hold' : delay > 0 ? `Late ${delay} d` : `${day}/${L}`;
+    const sub = halted ? `${Nm} on hold` : delay > 0 ? `${Nm} overdue` : info.label;
     const extra = [];
     // An alpha sires: his fertility is only fertile or sterile. Only a female alpha can carry and gets a conception chance.
     const sires = phys.role === 'alpha' && phys.sex === 'male';
     // A hidden pregnancy looks like an ordinary cycle (the numbers are what the cycle would read), so nothing gives it away.
     const asStage = hidden ? info.sub : null, dayNow = hidden ? rawDay : e.cycleDay;
     const inWin = dayNow <= Dn && info.sub !== 'suppressed';
-    if (inWin) extra.push(stat('calendar-day', 'pink', `${Nm} day`, `${dayNow} of ${Dn}`));
+    if (halted) extra.push(stat('circle-pause', 'blue', Nm, esc(`On hold: partner ${H.haltReason(k)}`), true));
+    else if (inWin) extra.push(stat('calendar-day', 'pink', `${Nm} day`, `${dayNow} of ${Dn}`));
     else if (delay > 0) extra.push(stat('calendar-xmark', 'orange', `${Nm} overdue`, `${delay} d`));
     else { const nxt = hidden ? L - rawDay + 1 : (fc.visible ? fc.actualIn : fc.expectedIn); extra.push(stat('calendar-day', 'purple', `Next ${nm}`, `in ${nxt} d${!hidden && fc.visible && fc.actualIn !== fc.expectedIn ? ' (delayed)' : ''}`)); }
     if (!hidden) {
@@ -197,7 +199,7 @@ function brief(k) {
     if (e.postpartumDays > 0) return `${n} recovery`;
     const hidden = E.isCarrying(e) && !e.known;
     const raw = hidden ? e.cycleDay + (e.pregnant ? e.days : e.egg.carryDays) : e.cycleDay, info = H.cycleInfo(k, raw);
-    return `${n} ${raw > s.cycleLength ? `late ${raw - s.cycleLength} d` : `${raw}/${s.cycleLength} ${info.label}`}`;
+    return `${n} ${info.sub === 'paused' ? 'rut on hold' : raw > s.cycleLength ? `late ${raw - s.cycleLength} d` : `${raw}/${s.cycleLength} ${info.label}`}`;
 }
 
 function html() {

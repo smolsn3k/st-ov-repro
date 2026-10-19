@@ -231,6 +231,7 @@ export function cycleInfo(k, dayOverride = null) {
         const pool = sub.startsWith('heat_') ? 'heat' : sub.startsWith('rut_') ? 'rut' : sub === 'delayed' ? 'late' : sub === 'calm' ? 'quiet' : sub;
         return { day: d, length: L, sub, label, pool, ...(sub === 'delayed' ? D.PHASE_INFO.delayed : D.PHASE_INFO[role][sub]), story: fix(a.story), act: fix(a.act), others: fix(a.others), ...extra };
     };
+    if (rutHalted(k)) return fin('paused', 'Rut on hold');
     if (d > L) return fin('delayed', 'Late');
     let sub, label;
     if (d <= Dn) {
@@ -290,3 +291,11 @@ export function feelNow(k, base = baseState(k)) {
     return { mood: obsMood || base.mood, physical: obsBody || base.physical, libido: LIBIDO[Math.round(score)], observed: { mood: !!obsMood, physical: !!obsBody, libido: observed } };
 }
 export const feelFor = k => feelNow(k, baseState(k));
+
+// Setting: an alpha's rut is on hold while the omega (the other character) is pregnant, carrying eggs or recovering.
+export function haltReason(k) {
+    const c = C(), o = k === 'user' ? 'char' : 'user', m = c.entities[o];
+    if (!S().haltAlphaRut || PHYS[c.physiology[k]]?.role !== 'alpha' || PHYS[c.physiology[o]]?.role !== 'omega' || !m) return null;
+    return m.pregnant ? 'pregnant' : m.egg.stage !== 'none' ? 'carrying eggs' : m.postpartumDays > 0 ? 'recovering' : null;
+}
+export const rutHalted = k => haltReason(k) !== null;
