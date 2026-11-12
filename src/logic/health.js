@@ -237,8 +237,8 @@ export function cycleInfo(k, dayOverride = null) {
     if (d <= Dn) {
         if (c.suppressants?.[k]) { sub = 'suppressed'; label = 'Suppressed'; }
         else { const p = Dn > 1 ? (d - 1) / (Dn - 1) : 0.5; sub = `${nm}_${p < 0.34 ? 'early' : p < 0.67 ? 'peak' : 'late'}`; label = cap(nm); }
-    } else if (d > L - 3) { sub = 'pre'; label = `Pre-${nm}`; }
-    else if (d <= Dn + 3) { sub = 'post'; label = `Post-${nm}`; }
+    } else if (d > L - 3) { if (c.suppressants?.[k]) { sub = 'suppressed'; label = `Suppressed (pre-${nm})`; } else { sub = 'pre'; label = `Pre-${nm}`; } }
+    else if (d <= Dn + 3) { if (c.suppressants?.[k]) { sub = 'suppressed'; label = `Suppressed (post-${nm})`; } else { sub = 'post'; label = `Post-${nm}`; } }
     else { sub = 'calm'; label = `Between ${nm}s`; }
     return fin(sub, label);
 }

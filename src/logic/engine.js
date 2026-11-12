@@ -65,8 +65,8 @@ export function phase(k) {
     const suppressed = !!c.suppressants?.[k];
     if (H.rutHalted(k)) return { id: 'paused', label: 'Rut on hold', fertility: 0.03 };
     if (d > L) return { id: 'late', label: `${name} late by ${d - L} d`, fertility: 0.03 };
+    if (suppressed && (d <= Dn + 3 || d > L - 3)) return { id: 'suppressed', label: `${name} (suppressed), cycle ${d}/${L}`, fertility: 0.05 };   // the whole build-up and aftermath is muted too
     if (d <= Dn) {
-        if (suppressed) return { id: 'suppressed', label: `${name} (suppressed), cycle ${d}/${L}`, fertility: 0.05 };
         return { id: r === 'omega' ? 'heat' : 'rut', label: `${name}, day ${d}/${Dn} (cycle ${d}/${L})`, fertility: r === 'omega' ? 1 : 0.8 };
     }
     if (d > L - 3) return { id: 'pre', label: `Pre-${name.toLowerCase()}, cycle ${d}/${L}`, fertility: 0.15 };

@@ -185,7 +185,7 @@ export const PHASE_ACT = {
         post: { story: 'just past a heat (post-heat)', act: 'drained, hungry, sleepy and sore; wants quiet, warmth, food and gentle contact; emotionally soft and a little vulnerable or embarrassed', others: 'the scent has faded to a calm, content trace; people close to them tend to fuss and look after them' },
         calm: { story: 'between heats', act: 'steady and in control, behaves normally with no heat symptoms', others: 'nothing unusual in their scent' },
         pre: { story: 'in the days before a heat (pre-heat)', act: 'senses it coming: restless, warm, scent-aware, with nesting urges, irritable or clingy; thinks about preparing (suppressants, privacy, a safe place) and may avoid crowds or seek a trusted alpha', others: 'a faint, changing scent; attentive alphas may notice before the omega admits anything' },
-        suppressed: { story: 'on heat suppressants', act: 'dulled and muted: only faint echoes of a heat, some tiredness and a flat mood, occasional breakthrough warmth', others: 'their scent is muted and hard to read' },
+        suppressed: { story: 'on heat suppressants', act: 'dulled and muted: only faint echoes of a heat, some tiredness and a flat mood, occasional breakthrough warmth. The same goes for the days before and after the heat window: NO noticeable scent change, no raised body temperature, no extra sensitivity or neediness, nothing others would pick up', others: 'their scent is muted and hard to read' },
     },
     alpha: {
         rut_early: { story: 'at the start of a rut', act: 'edgy and alert: heat under the skin, sharpening scent, short fuse and restless energy; may withdraw to avoid trouble or hover near a mate', others: 'a sharpening, musky scent; omegas nearby feel the shift' },
@@ -195,7 +195,7 @@ export const PHASE_ACT = {
         calm: { story: 'between ruts', act: 'calm, steady and in control', others: 'nothing unusual in their scent' },
         pre: { story: 'in the days before a rut (pre-rut)', act: 'edgy and restless: warmth, heightened scent, shorter patience and growing possessiveness; looks for a place to ride it out or stays close to a mate', others: 'a faint, rising musk; omegas near them may notice the change' },
         paused: { story: 'resting: the rut is on hold while their mate is pregnant or recovering', act: 'calm, protective and attentive; stays close to their mate and the young; the rut simply does not come', others: 'a steady, reassuring scent' },
-        suppressed: { story: 'on rut suppressants', act: 'dulled and muted: only faint echoes of a rut, tiredness and a flat mood', others: 'their scent is muted and hard to read' },
+        suppressed: { story: 'on rut suppressants', act: 'dulled and muted: only faint echoes of a rut, tiredness and a flat mood. The same goes for the days before and after the rut window: NO noticeable scent change, no raised body temperature, no heightened senses or possessiveness, nothing others would pick up', others: 'their scent is muted and hard to read' },
     },
     delayed: { story: 'overdue: the {nm} has not come when expected', act: 'uneasy: counts the days and cannot explain it; mood swings between worry and denial; thoughts turn to possible causes (stress, illness, medication, pregnancy)', others: 'people who know their rhythm notice the missing change and may ask about it' },
 };

@@ -92,6 +92,7 @@ function line(k) {
         const sym = H.phaseSymptoms(k, info.pool, 3);
         out.push(`${who} is ${info.story}. How they come across: ${info.act}.${sym.length ? ` Typical sensations right now: ${sym.join('; ')}.` : ''} Others around them notice: ${info.others}.`);
         if (info.sub === 'paused') out.push(`${M(k)}'s rut is on hold because ${M(k === 'user' ? 'char' : 'user')} is ${H.haltReason(k)}; it resumes once they have recovered.`);
+        if (info.sub === 'suppressed' && e.cycleDay > S().cycleLength - 3) out.push(`The ${nm} would be due in about ${plural(fc.expectedIn)}, but on suppressants ${M(k)} feels at most a faint echo: no real change in scent, body heat or sensitivity, and nobody around notices anything.`);
         if (info.sub === 'pre') out.push(`They expect the ${nm} within about ${plural(fc.expectedIn)}.`);
         if (c.suppressants[k] && info.sub !== 'suppressed') out.push(`${M(k)} takes ${nm} suppressants: the ${nm} is muted or does not come at all. This is not contraception.`);
         const sb = e.setback;
