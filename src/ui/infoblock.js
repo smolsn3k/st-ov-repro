@@ -1,5 +1,6 @@
 // Chat infoblock: compact, collapsible status cards under (or above) the latest message.
 // DOM only; never written into the message or the prompt.
+import { aoIcon } from './icon.js';
 import { S, C, trackedKeys, nameOf, PHYS, contraProtection, showDate, dateLabel, hasDate, fertilityWord, chanceWord } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
@@ -212,7 +213,7 @@ function html() {
     const items = keys.map(brief); if (kids.length) items.push(`${kids.length} ${kids.length > 1 ? 'children' : 'child'}`);
     const sub = items.map(t => `<span>${t}</span>`).join('');
     return `<details class="ovr-ib ovr-ib-multi" data-key="main" ${openSet.has('main') ? 'open' : ''}>
-        <summary><div class="ovr-ib-header"><div class="ovr-ib-icon cycle">${ic('venus-mars')}</div><div class="ovr-ib-titlebox"><span class="ovr-ib-title">Reproduction</span><div class="ovr-ib-subline">${sub}</div></div><div class="ovr-ib-chev">${ic('chevron-down')}</div></div></summary>
+        <summary><div class="ovr-ib-header"><div class="ovr-ib-icon cycle">${aoIcon()}</div><div class="ovr-ib-titlebox"><span class="ovr-ib-title">Reproduction</span><div class="ovr-ib-subline">${sub}</div></div><div class="ovr-ib-chev">${ic('chevron-down')}</div></div></summary>
         <div class="ovr-ib-c ovr-ib-multi-body">${cards.join('')}</div></details>`;
 }
 

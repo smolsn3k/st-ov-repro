@@ -9,6 +9,7 @@ import { analyzeLatest } from '../logic/pipeline.js';
 import { labelOf, ageWords, stageOf, careNeeds, careNorms, nowHours, MILESTONES, archiveBabies } from '../logic/baby.js';
 import { buildPrompt, updatePrompt } from '../logic/prompt.js';
 import { renderInfoblock, applyCustomCss } from './infoblock.js';
+import { aoIcon } from './icon.js';
 
 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const opts = (obj, cur, labelKey = 'label') => Object.entries(obj).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${esc(v[labelKey])}</option>`).join('');
@@ -318,7 +319,7 @@ const LABELS = { qcycle: 'Cycle day', qpreg: 'Manual pregnancy start', qchild: '
 
 export function mount() {
     if ($('#ovr_root').length) return;
-    $('#extensions_settings2').append(`<div id="ovr_root" class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>Omegaverse Reproduction</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content ovr-scope" id="ovr_body"></div></div>`);
+    $('#extensions_settings2').append(`<div id="ovr_root" class="inline-drawer"><div class="inline-drawer-toggle inline-drawer-header"><b>${aoIcon()} Omegaverse Reproduction</b><div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div></div><div class="inline-drawer-content ovr-scope" id="ovr_body"></div></div>`);
     const root = '#ovr_body';     // handlers are scoped to the body so the panel also works inside the popup
     const ROOTS = ['#ovr_body', '#ovr_quick'];     // the wand quick menu uses the very same handlers, so both always agree
     const onDoc = (ev, sel, fn) => ROOTS.forEach(r => $(document).on(ev, `${r} ${sel}`, fn));
@@ -504,7 +505,7 @@ export function openPopup(focus) {
     const body = $('#ovr_body');
     if (!body.length) return;
     if (popupOpen) { openSecs.add(focus); saveOpen(); render(); focusSection(focus); return; }
-    const pop = $(`<div id="ovr_popup" class="ovr-popup"><div class="ovr-popup-box"><div class="ovr-popup-head"><b><i class="fa-solid fa-venus-mars"></i> Omegaverse Reproduction</b><label class="ovr-popup-op" title="Popup opacity"><i class="fa-solid fa-droplet"></i><input type="range" id="ovr_pop_op" min="30" max="100" step="5" value="${S().popupOpacity}"></label><div class="ovr-popup-close menu_button" title="Close">&times;</div></div><div class="ovr-popup-body"></div></div></div>`);
+    const pop = $(`<div id="ovr_popup" class="ovr-popup"><div class="ovr-popup-box"><div class="ovr-popup-head"><b>${aoIcon()} Omegaverse Reproduction</b><label class="ovr-popup-op" title="Popup opacity"><i class="fa-solid fa-droplet"></i><input type="range" id="ovr_pop_op" min="30" max="100" step="5" value="${S().popupOpacity}"></label><div class="ovr-popup-close menu_button" title="Close">&times;</div></div><div class="ovr-popup-body"></div></div></div>`);
     pop.data('prevDisplay', body[0].style.display);
     pop.find('.ovr-popup-body').append(body);
     body.css('display', 'block');
@@ -524,7 +525,7 @@ function addWandButton(tries = 0) {
     if ($('#ovr_wand').length) return;
     const menu = $('#extensionsMenu');
     if (!menu.length) { if (tries < 20) setTimeout(() => addWandButton(tries + 1), 500); return; }
-    const item = $(`<div id="ovr_wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem" title="Quick menu: cycle, contraception, suppressants, tests, add pregnancy or child"><div class="fa-solid fa-venus-mars extensionsMenuExtensionIcon"></div><span>OV Reproduction</span></div>`);
+    const item = $(`<div id="ovr_wand" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem" title="Quick menu: cycle, contraception, suppressants, tests, add pregnancy or child"><div class="extensionsMenuExtensionIcon">${aoIcon()}</div><span>OV Reproduction</span></div>`);
     item.on('click', () => openQuick()).on('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openQuick(); } });
     menu.append(item);
 }
@@ -597,7 +598,7 @@ export function closeQuick() {
 export function openQuick() {
     if (quickOpen) return closeQuick();
     if (popupOpen) closePopup();
-    const pop = $(`<div id="ovr_qpop" class="ovr-popup"><div class="ovr-popup-box ovr-quickbox"><div class="ovr-popup-head"><b><i class="fa-solid fa-venus-mars"></i> OV Reproduction</b><label class="ovr-popup-op" title="Popup opacity"><i class="fa-solid fa-droplet"></i><input type="range" id="ovr_pop_op" min="30" max="100" step="5" value="${S().popupOpacity}"></label><div class="ovr-popup-close menu_button" title="Close">&times;</div></div><div class="ovr-popup-body"><div id="ovr_quick" class="ovr-scope"></div></div></div></div>`);
+    const pop = $(`<div id="ovr_qpop" class="ovr-popup"><div class="ovr-popup-box ovr-quickbox"><div class="ovr-popup-head"><b>${aoIcon()} OV Reproduction</b><label class="ovr-popup-op" title="Popup opacity"><i class="fa-solid fa-droplet"></i><input type="range" id="ovr_pop_op" min="30" max="100" step="5" value="${S().popupOpacity}"></label><div class="ovr-popup-close menu_button" title="Close">&times;</div></div><div class="ovr-popup-body"><div id="ovr_quick" class="ovr-scope"></div></div></div></div>`);
     pop.on('pointerdown', e => { if (e.target === pop[0]) closeQuick(); });
     pop.find('#ovr_pop_op').on('input', e => { S().popupOpacity = Number(e.target.value); applyCustomCss(); }).on('change', () => saveS());
     pop.find('.ovr-popup-close').on('click', closeQuick);
