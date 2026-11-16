@@ -92,6 +92,8 @@ function babyCard(b) {
 const numField = (key, label, min, max, step = 1) => `<label class="ovr-field"><span>${label}</span><input type="number" class="text_pole" data-g="${key}" min="${min}" max="${max}" step="${step}" value="${S()[key]}"></label>`;
 const chk = (key, label) => `<label class="ovr-switch"><input type="checkbox" data-g="${key}" ${S()[key] ? 'checked' : ''}><span class="ovr-slider"></span><span class="ovr-switch-label">${label}</span></label>`;
 const rng = (key, label, min, max, step = 5) => `<label class="ovr-field"><span>${label}: <b data-rv="${key}">${S()[key]}%</b></span><input type="range" data-gr="${key}" min="${min}" max="${max}" step="${step}" value="${S()[key]}"></label>`;
+// The per-chat on/off: stored with this chat only (data-c is the chat-bound binding).
+const chatOnSwitch = () => `<label class="ovr-switch" title="Switch the whole extension on or off for this chat only"><input type="checkbox" data-c="chatOn" ${C().chatOn === false ? '' : 'checked'}><span class="ovr-slider"></span><span class="ovr-switch-label">On in this chat</span></label>`;
 const grid = (...f) => `<div class="ovr-grid">${f.join('')}</div>`;
 const ep = (k, path, type, val, extra = '') => `<input type="${type}" class="text_pole" data-ent="${k}" data-path="${path}" ${type === 'checkbox' ? (val ? 'checked' : '') : `value="${esc(val)}"`} ${extra}>`;
 
@@ -272,7 +274,7 @@ export function render() {
 
     const sp = scrollParent(body[0]), top = sp ? sp.scrollTop : 0;
     body.html(`
-    <div class="ovr-switches top">${chk('enabled', 'Enabled')}${chk('notifications', 'Notifications')}</div>
+    <div class="ovr-switches top">${chk('enabled', 'Enabled (all chats)')}${chatOnSwitch()}${chk('notifications', 'Notifications')}</div>${C().chatOn === false || !S().enabled ? `<small class="ovr-dim">${!S().enabled ? 'The extension is off everywhere.' : 'Tracking is off in this chat: nothing is injected into the prompt and no popup is shown. Your data is kept.'}</small>` : ''}
     <div class="ovr-quick"><div class="ovr-quick-title"><i class="fa-solid fa-message"></i> Chat infoblock</div>
         <div class="ovr-quick-row">${chk('infoblock', 'Show under messages')}
         <select class="text_pole" data-g="infoblockPosition" title="Where the infoblock sits in the latest message"><option value="bottom" ${s.infoblockPosition === 'bottom' ? 'selected' : ''}>Bottom of the message</option><option value="top" ${s.infoblockPosition === 'top' ? 'selected' : ''}>Top of the message</option></select></div>
@@ -563,7 +565,7 @@ function quickHtml() {
     return `<div class="ovr-btns ovr-quick-top">
             <div class="menu_button ovr-btn" data-act="open-global"><i class="fa-solid fa-sliders"></i> Global settings</div>
             <div class="menu_button ovr-btn" data-act="open-chat"><i class="fa-solid fa-comment-dots"></i> Chat settings</div></div>
-        <div class="ovr-switches col">${chk('notifications', 'Notifications')}${chk('tryingMode', 'Trying for a baby')}${chk('infoblockShowHidden', 'Show hidden pregnancies')}</div>
+        <div class="ovr-switches col">${chatOnSwitch()}${chk('notifications', 'Notifications')}${chk('tryingMode', 'Trying for a baby')}${chk('infoblockShowHidden', 'Show hidden pregnancies')}</div>
         ${quickCard('user')}${quickCard('char')}
         ${sec('q-preg', 'Add pregnancy', `<div class="ovr-grid">
             <label class="ovr-field"><span>Who</span><select class="text_pole" id="ovr_q_who"><option value="user">${nm('user')}</option><option value="char">${nm('char')}</option></select></label>

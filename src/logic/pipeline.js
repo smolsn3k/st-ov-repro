@@ -1,5 +1,5 @@
 // What happens to one chat message: read its hidden tags (free), read the date, optionally ask the analyzer, apply everything, checkpoint.
-import { ctx, S, C, saveC, hooks } from '../core/core.js';
+import { ctx, S, C, saveC, hooks, isOn } from '../core/core.js';
 import { parseStoryDate, toDays } from '../core/dates.js';
 import { refreshDate, analyze, applyResult } from './analyze.js';
 import { parseTags, applyTags } from './tags.js';
@@ -17,7 +17,7 @@ async function withBirthDialogs(fn) {
 
 export async function processMessage(idx) {
     const s = S();
-    if (!s.enabled) return;
+    if (!isOn()) return;
     const chat = ctx().chat || [];
     const msg = chat[idx];
     if (!msg || msg.is_system) return;

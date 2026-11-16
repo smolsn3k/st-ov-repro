@@ -1,5 +1,5 @@
 // Builds the hidden context block injected into every generation.
-import { ctx, S, C, PHYS, ERAS, CONTRA, PROMPT_KEY, trackedKeys, showDate, dateLabel, hasDate } from '../core/core.js';
+import { ctx, S, C, PHYS, ERAS, CONTRA, PROMPT_KEY, trackedKeys, showDate, dateLabel, hasDate, isOn } from '../core/core.js';
 import { tagInstructions } from './tags.js';
 import { phase, weeksOf, trimester, dueDate, isCarrying } from './engine.js';
 import { diffDays } from '../core/dates.js';
@@ -165,7 +165,7 @@ function familyBlock() {
 
 export function updatePrompt() {
     const x = ctx(), s = S();
-    try { x.setExtensionPrompt(PROMPT_KEY, s.enabled ? buildPrompt() : '', 1, s.injectDepth, false, 0); }
+    try { x.setExtensionPrompt(PROMPT_KEY, isOn() ? buildPrompt() : '', 1, s.injectDepth, false, 0); }
     catch (e) { console.warn('[omegaverse] prompt update failed', e); }
 }
 export { isCarrying, CONTRA };

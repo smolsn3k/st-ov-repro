@@ -1,7 +1,7 @@
 // Chat infoblock: compact, collapsible status cards under (or above) the latest message.
 // DOM only; never written into the message or the prompt.
 import { aoIcon } from './icon.js';
-import { S, C, trackedKeys, nameOf, PHYS, contraProtection, showDate, dateLabel, hasDate, fertilityWord, chanceWord } from '../core/core.js';
+import { S, C, trackedKeys, nameOf, PHYS, contraProtection, showDate, dateLabel, hasDate, fertilityWord, chanceWord, isOn } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
@@ -222,7 +222,7 @@ export function renderInfoblock() {
     clearTimeout(timer);
     timer = setTimeout(() => {
         $('#chat .ovr-ib-wrap').remove();
-        if (!S().enabled || !S().infoblock) return;
+        if (!isOn() || !S().infoblock) return;
         const last = $('#chat .mes').not('.smallSysMes').last();
         if (!last.length) return;
         const inner = html();

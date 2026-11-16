@@ -140,6 +140,7 @@ export const newEntity = () => ({
 });
 
 export const CHAT_DEFAULTS = () => ({
+    chatOn: true,                                     // tracking switched on in THIS chat (the global switch must be on too)
     physiology: { user: 'm-omega', char: 'm-alpha' },
     fertility: { user: 100, char: 100 },              // personal fertility %: 100 is normal, lower means fertility problems; the partner's counts too
     repro: { user: 'live', char: 'live' },          // live | oviposition
@@ -284,3 +285,6 @@ export const RUT_STAGES = [
 export const LEVELS = [['very_high', 'Very high', 99], ['high', 'High', 85], ['moderate', 'Moderate', 50], ['low', 'Low', 15], ['very_low', 'Very low', 3], ['none', 'None', 0]];
 export const nearestLevel = pct => LEVELS.reduce((best, l) => (Math.abs(l[2] - pct) < Math.abs(best[2] - pct) ? l : best), LEVELS[0])[0];
 export const chanceWord = pct => (pct <= 0 ? 'None' : pct < 3 ? 'Very low' : pct < 12 ? 'Low' : pct < 35 ? 'Moderate' : pct < 70 ? 'High' : 'Very high');
+
+// Is the extension active here? It needs the global switch and the switch of the current chat.
+export const isOn = () => !!S().enabled && C().chatOn !== false;
