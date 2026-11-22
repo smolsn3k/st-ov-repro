@@ -4,7 +4,7 @@ import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
 import { profiles, analyzeAppearance } from '../logic/analyze.js';
-import { resolveWhen, toDays } from '../core/dates.js';
+import { resolveWhen, toDays, parseAgeDays } from '../core/dates.js';
 import { analyzeLatest } from '../logic/pipeline.js';
 import { labelOf, ageWords, stageOf, careNeeds, careNorms, nowHours, MILESTONES, archiveBabies } from '../logic/baby.js';
 import { buildPrompt, updatePrompt } from '../logic/prompt.js';
@@ -221,7 +221,7 @@ function addChildForm() {
         <label class="ovr-field"><span>Sex</span><select class="text_pole" id="ovr_ac_sex"><option value="F">Girl</option><option value="M">Boy</option></select></label>
         <label class="ovr-field"><span>Carried by</span><select class="text_pole" id="ovr_ac_parent"><option value="user">${esc(nameOf('user'))}</option><option value="char">${esc(nameOf('char'))}</option></select></label>
         <label class="ovr-field"><span>Other parent</span><input type="text" class="text_pole" id="ovr_ac_other" placeholder="default: the other character"></label>
-        <label class="ovr-field"><span>Born (blank = today)</span><input type="text" class="text_pole" id="ovr_ac_born" placeholder="today, 3 weeks ago, 12 May..."></label>
+        <label class="ovr-field"><span>Age or birth date (blank = newborn)</span><input type="text" class="text_pole" id="ovr_ac_born" placeholder="3 weeks, 4 years, 12 May 2022"></label>
         <label class="ovr-field"><span>Origin</span><select class="text_pole" id="ovr_ac_via"><option value="birth">Born</option><option value="hatch">Hatched</option></select></label>
         <label class="ovr-field"><span>Delivery</span><select class="text_pole" id="ovr_ac_method"><option value="natural">Natural</option><option value="csection">C-section</option></select></label></div>
         <div class="ovr-btns"><div class="menu_button ovr-btn" data-act="addchild">Add child</div></div>`;
@@ -314,7 +314,7 @@ export function refresh() { updatePrompt(); render(); renderQuick(); renderInfob
 
 function setPath(obj, path, v) { const p = path.split('.'); const last = p.pop(); p.reduce((o, k) => o[k] ??= (/^\d+$/.test(k) ? [] : {}), obj)[last] = v; }
 const val = el => (el.type === 'checkbox' ? el.checked : el.type === 'number' || el.dataset.num !== undefined ? Number(el.value) : el.value);
-const note = (t, type = 'info') => S().notifications && toastr[type](t, 'Omegaverse');
+const note = (t, type = 'info', force = false) => (force || type === 'warning' || S().notifications) && toastr[type](t, 'Omegaverse');   // warnings (and forced notes) always show
 const syncLock = c => { c.date.manualValue = c.date.manual ? c.date.current : null; c.date.manualText = c.date.manual ? c.date.text : ''; c.date.manualTime = c.date.manual ? c.date.time : null; };
 
 const LABELS = { qcycle: 'Cycle day', qpreg: 'Manual pregnancy start', qchild: 'Added child', clearsb: 'Cleared setback', analyzenow: 'Analyze now', shift: 'Date shift', addchild: 'Added child', analyzelooks: 'Appearance analysis', adv: 'Advance time', conceive: 'Conception', birth: 'Birth', lay: 'Laying eggs', hatch: 'Hatching', end: 'Ended', startpreg: 'Manual pregnancy start', disrupt: 'Disruption', visit: 'Visit', test: 'Test', reveal: 'Reveal', resolvec: 'Resolved complication', 'date-adv': 'Date change', 'date-only': 'Date change', fed: 'Fed', changed: 'Diaper changed', grow: 'Moved to older', delbaby: 'Removed child' };
@@ -443,10 +443,11 @@ export function mount() {
             case 'delbaby': if (confirm('Remove this child?')) c.family.babies = c.family.babies.filter(x => x.id !== +el.dataset.b); return done();
             case 'addchild': {
                 const v = id => $(`#ovr_ac_${id}`).val();
-                const bornText = (v('born') || '').trim(), born = bornText ? resolveWhen(bornText, toDays(c.date.current), S().dateOrder) : null;
-                if (bornText && born === null) return note('Could not read that birth date. Try "today", "3 weeks ago" or a date your story uses', 'warning');
-                const b = E.addManualChild({ name: v('name'), sex: v('sex'), parent: v('parent'), otherParent: (v('other') || '').trim(), born, via: v('via'), method: v('method') });
-                return done(`Added ${labelOf(b)}`);
+                const bornText = (v('born') || '').trim(), ageDays = parseAgeDays(bornText);
+                let born = null;
+                if (ageDays === null) { born = resolveWhen(bornText, toDays(c.date.current), S().dateOrder); if (born === null) return note('Could not read that. Try an age (3 weeks, 4 years) or a date your story uses', 'warning'); }
+                const b = E.addManualChild({ name: v('name'), sex: v('sex'), parent: v('parent'), otherParent: (v('other') || '').trim(), born, age: ageDays, via: v('via'), method: v('method') });
+                note(childAdded(b), 'info', b.grown); return done();
             }
             case 'open-global': closeQuick(); openPopup('settings'); return;
             case 'open-chat': closeQuick(); openPopup('chat'); return;
@@ -464,10 +465,10 @@ export function mount() {
                 return done(E.startManualPregnancy(who, cur - wk * 7, cnt, [], p) ? `${nameOf(who)}: pregnancy started (${wk} weeks)` : 'Could not start a pregnancy here');
             }
             case 'qchild': {
-                const whenText = ageToWhen($('#ovr_q_age').val()), born = whenText ? resolveWhen(whenText, toDays(c.date.current), S().dateOrder) : null;
-                if (whenText && born === null) return note('Could not read that age. Try newborn, 3 weeks, 6 months or 2 years', 'warning');
-                const b = E.addManualChild({ name: $('#ovr_q_name').val(), sex: $('#ovr_q_sex').val(), parent: $('#ovr_q_parent').val(), otherParent: ($('#ovr_q_other2').val() || '').trim(), born, via: 'birth', method: 'natural' });
-                return done(`Added ${labelOf(b)}`);
+                const ageDays = parseAgeDays($('#ovr_q_age').val());
+                if (ageDays === null) return note('Could not read that age. Try newborn, 3 weeks, 6 months or 4 (years)', 'warning');
+                const b = E.addManualChild({ name: $('#ovr_q_name').val(), sex: $('#ovr_q_sex').val(), parent: $('#ovr_q_parent').val(), otherParent: ($('#ovr_q_other2').val() || '').trim(), born: null, age: ageDays, via: 'birth', method: 'natural' });
+                note(childAdded(b), 'info', b.grown); return done();
             }
             case 'analyzelooks': {
                 note('Analyzing appearance...');
@@ -536,15 +537,9 @@ function addWandButton(tries = 0) {
 // ── Wand quick menu: the most used controls, bound to the same state and handlers as the panel ──
 let quickOpen = false;
 const conOptions = cur => Object.keys(CONTRA).map(id => `<option value="${id}" ${id === cur ? 'selected' : ''}>${esc(contraLabel(id))}</option>`).join('');
-// "newborn", "3 weeks", "6 months", "2 years" -> "N days ago" for resolveWhen
-function ageToWhen(txt) {
-    const t = String(txt || '').trim().toLowerCase();
-    if (!t || /^(new ?born|today|now|0)$/.test(t)) return '';
-    const m = /^(\d+(?:\.\d+)?)\s*(d|days?|w|wks?|weeks?|m|mos?|months?|y|yrs?|years?)$/.exec(t);
-    if (!m) return t;
-    const n = parseFloat(m[1]), u = m[2];
-    return `${Math.round(/^d/.test(u) ? n : /^w/.test(u) ? n * 7 : /^m/.test(u) ? n * 30 : n * 365)} days ago`;
-}
+
+// What to tell the user after a child is added (children past the baby-care age live in the older children list).
+const childAdded = b => (b.grown ? `Added ${labelOf(b)} (${ageWords(b.age)}) to the older children: past the baby-care age of ${ageWords(S().babyMaxAgeDays)}` : `Added ${labelOf(b)}`);
 
 function quickCard(k) {
     const s = S(), c = C(), e = c.entities[k], phys = PHYS[c.physiology[k]], ph = E.phase(k), L = s.cycleLength, era = H.era();
