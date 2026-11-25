@@ -121,6 +121,7 @@ export const DEFAULTS = {
 
 export const newEntity = () => ({
     cycleDay: 1 + Math.floor(Math.random() * Math.max(1, S().cycleLength || 30)),   // random start day for every new character
+    secondaryGender: 'not_presented',
     feel: { mood: '', physical: '', libido: '', stamp: null },                       // mood / physical / libido picked up from the story
     pregnant: false, days: 0, conceptionDate: null, fetusCount: 1, fetusSex: [],
     egg: { stage: 'none', count: 0, laid: 0, carryDays: 0, incubDays: 0 },
