@@ -5,7 +5,7 @@ import { phase, weeksOf, trimester, dueDate, isCarrying } from './engine.js';
 import { diffDays } from '../core/dates.js';
 import * as H from './health.js';
 import * as D from '../core/data.js';
-import { labelOf, ageWords, stageOf, careNeeds, careNorms } from './baby.js';
+import { labelOf, ageWords, stageOf, careNeeds, careNorms, MILESTONES } from './baby.js';
 
 const M = k => (k === 'user' ? '{{user}}' : '{{char}}');
 
@@ -40,7 +40,8 @@ function lateHint(k, daysIn) {
 function line(k) {
     const c = C(), e = c.entities[k], s = S(), ph = phase(k), phys = PHYS[c.physiology[k]];
     const era = ERAS[c.reveal.era] || ERAS.modern, h = e.health, prac = H.practitioner();
-    const who = `${M(k)} (${phys.label.toLowerCase()})`;
+    const sg = ({ alpha: 'Alpha', beta: 'Beta', omega: 'Omega' })[e.secondaryGender] || '';
+    const who = `${M(k)} (${phys.label.toLowerCase()}${sg ? `; secondary gender: ${sg}` : ''})`;
     const out = [];
     const known = e.known;
     const second = H.secondParentName(k);
@@ -141,6 +142,7 @@ function familyBlock() {
         const n = careNorms(b.age, b), need = careNeeds(b);
         const parts = [`${labelOf(b)} (${b.sex === 'M' ? 'boy' : 'girl'}, ${M(b.parent)}'s ${b.via === 'hatch' ? 'hatchling' : 'child'}): ${ageWords(b.age)} old, ${stageOf(b.age).label.toLowerCase()}`];
         parts.push(`health ${b.health}`);
+        if (b.secondaryGender && b.secondaryGender !== 'not_presented') parts.push(`secondary gender ${b.secondaryGender}`);
         if (b.mood) parts.push(`mood ${b.mood}`);
         parts.push(`${b.sleep || need.sleep}`);
         parts.push(`feeding: ${b.feeding || 'not specified'}, currently ${need.feeding}`);
@@ -156,10 +158,12 @@ function familyBlock() {
         if (b.condition) l += ` Born with: ${b.condition}.`;
         if (b.method === 'csection') l += ' Born by C-section.';
         const recent = b.milestones.slice(-3).map(x => x.text);
-        if (recent.length) l += ` Already achieved: ${recent.join('; ')}.`;
+        if (recent.length) l += ` Growth goals achieved: ${recent.join('; ')}.`;
+        const pending = MILESTONES.filter(m => !b.milestones.some(x => x.key === m.key));
+        if (pending.length) l += ` Upcoming growth goals: ${pending.slice(0, 3).map(m => m.label).join('; ')}.`;
         out.push(l);
     }
-    if (fam.grown.length) out.push('Older children: ' + fam.grown.map(g => `${g.name || 'unnamed'} (${g.sex === 'M' ? 'boy' : 'girl'}, ${ageWords(g.age)}, ${M(g.parent)}'s)`).join('; ') + '.');
+    if (fam.grown.length) out.push('Older children: ' + fam.grown.map(g => `${g.name || 'unnamed'} (${g.sex === 'M' ? 'boy' : 'girl'}, ${ageWords(g.age)}, ${M(g.parent)}'s${g.secondaryGender && g.secondaryGender !== 'not_presented' ? `; secondary gender: ${g.secondaryGender}` : ''}${g.personality?.length ? `; personality: ${g.personality.join(', ')}` : ''}${g.appearance?.length ? `; appearance: ${g.appearance.join(', ')}` : ''})`).join('; ') + '.');
     return out.join('\n');
 }
 

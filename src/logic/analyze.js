@@ -1,7 +1,7 @@
 // Date detection from the active chat + optional LLM event analysis through a chosen API profile.
 import { ctx, S, C, trackedKeys, nameOf, CONTRA, contraLabel, hooks, dateLabel, showDate } from '../core/core.js';
 import { extractDate, extractTime, extractYearless, placeYearless, parseStoryDate, toDays, addDays } from '../core/dates.js';
-import { labelOf, nowHours as nowHoursSafe } from './baby.js';
+import { labelOf, nowHours as nowHoursSafe, updateBabies } from './baby.js';
 import * as E from './engine.js';
 import * as H from './health.js';
 import { DISRUPTIONS, NEST } from '../core/data.js';
@@ -81,9 +81,11 @@ function buildMessages(idx) {
         recent.unshift(`${chat[i].is_user ? nameOf('user') : (chat[i].name || nameOf('char'))}: ${clean(chat[i].mes).slice(0, 1800)}`);
     }
     const fam = c.family.babies;
-    const babyBlock = fam.length ? [
-        `Children now (labels are identifiers): ${fam.map(b => `${labelOf(b)} (${b.sex === 'M' ? 'boy' : 'girl'}, ${b.age} days old)`).join('; ')}.`,
-        ' "baby_updates": [ {"label": "<label above>", "name": "string or null (only if the story gives the child a name)", "mood": "1-3 words or null", "sleep": "asleep|awake|drowsy|napping|null", "feeding": "breast|formula|mixed|solids|null", "fed": bool (was fed in the newest message), "diaper_changed": bool, "health": "normal|fever|cold|sick|injured|recovering|null", "personality": ["short trait"], "appearance": ["short trait"]} ]  // only children actually mentioned in the newest message; use null/false/[] when not stated',
+    const grown = c.family.grown || [];
+    const childBlock = (fam.length || grown.length) ? [
+        `Existing children (use exact names as identifiers): ${[...fam, ...grown].map(b => `${b.name || labelOf(b)} (${b.sex === 'M' ? 'boy' : 'girl'}, ${b.age ?? 0} days old${b.secondaryGender && b.secondaryGender !== 'not_presented' ? `, secondary gender ${b.secondaryGender}` : ''}${grown.includes(b) ? ', older child' : ''})`).join('; ')}.`,
+        ' "baby_updates": [ {"label": "<active baby label>", "name": "string or null", "mood": "1-3 words or null", "sleep": "asleep|awake|drowsy|napping|null", "feeding": "breast|formula|mixed|solids|null", "fed": bool, "diaper_changed": bool, "health": "normal|fever|cold|sick|injured|recovering|null", "personality": ["short trait"], "appearance": ["short trait"]} ],',
+        ' "child_updates": [ {"name": "<exact existing child name>", "age_days": integer or null, "secondary_gender": "alpha|beta|omega|not_presented|null", "personality": ["new short traits"], "appearance": ["new visible traits"]} ] // only update a child clearly mentioned in the newest message; do not infer changes',
     ] : [];
     const system = 'You are a precise story-state extractor for a fictional roleplay between adult characters. You only classify what the text literally states. Reply with a single JSON object and nothing else.';
     const user = [
@@ -112,7 +114,7 @@ function buildMessages(idx) {
         ' "contraception": {"user": "none|condom|pill|iud|sterile|null", "char": "..."},  // the contraception (prevents conception) that applies to THIS character (their own method, or their partner\'s such as a condom); \'none\' only if the story says no protection is used; null if not mentioned',
         ' "suppressants": {"user": true|false|null, "char": true|false|null},  // heat/rut suppressants (they stop the heat/rut, they are NOT contraception): true if taken now, false if stopped, null if not mentioned',
         ' "children": [ {"owner": "user|char", "name": "string", "sex": "M|F|null", "age_days": integer or null (newborn 0, 1 year 365, 3 years 1095), "other_parent": "name or null", "born_now": bool} ],  // every child of user/char that is born in the newest message OR is mentioned as already existing; owner = the parent who bore or hatched the child (the mother/carrier if unclear); [] if none',
-        ...babyBlock,
+        ...childBlock,
         '}',
         'Use false when unsure. Plans, hypotheticals, memories and fantasies are false. Return valid JSON.',
         '', '--- EXCERPT ---', recent.join('\n\n'),
@@ -132,10 +134,10 @@ async function call(system, user) {
     if (s.apiProfile) {
         const svc = x.ConnectionManagerRequestService;
         if (!svc?.sendRequest) throw new Error('Connection Manager is unavailable');
-        const res = await svc.sendRequest(s.apiProfile, [{ role: 'system', content: system }, { role: 'user', content: user }], 500, { stream: false, extractData: true, includePreset: true, includeInstruct: true }, {});
+        const res = await svc.sendRequest(s.apiProfile, [{ role: 'system', content: system }, { role: 'user', content: user }], 900, { stream: false, extractData: true, includePreset: true, includeInstruct: true }, {});
         return typeof res === 'string' ? res : res?.content;
     }
-    return await x.generateRaw({ prompt: user, systemPrompt: system, responseLength: 500 });
+    return await x.generateRaw({ prompt: user, systemPrompt: system, responseLength: 900 });
 }
 
 // Decide whether this message is worth an analyzer call (every call is an API request).
@@ -224,6 +226,7 @@ export function applyResult(r, opts = {}) {
         if (b(r.discovered, k) && E.isCarrying(e) && !e.known) { e.known = true; events.push(`${n}'s condition was discovered`); }
     }
     applyChildren(r.children, justBorn, events);
+    applyChildUpdates(r.child_updates, events);
     } finally {
         hooks.onBirth = keepBirthDialog;
         if (keepBirthDialog) for (const [ids, k2] of pending) keepBirthDialog(ids, k2);
@@ -247,7 +250,7 @@ function applyChildren(list, justBorn, events) {
         if (fresh && (it.born_now === true || (age !== null && age <= 3))) { if (name) { fresh.name = name; events.push(`Baby named ${name}`); } if (sex) fresh.sex = sex; continue; }
         if (!name && it.born_now !== true) continue;                      // an unnamed mention of an old child is not enough to create one
         if (age !== null && age >= s.babyMaxAgeDays) {                   // already grown: goes straight to the older children list
-            fam.grown.push({ id: fam.nextId++, name, sex: sex || 'F', parent: it.owner, age, personality: [], appearance: [], otherParent: other || H.secondParentName(it.owner), milestones: 0 });
+            fam.grown.push({ id: fam.nextId++, name, sex: sex || 'F', parent: it.owner, age, secondaryGender: 'not_presented', personality: [], appearance: [], otherParent: other || H.secondParentName(it.owner), milestones: 0 });
             events.push(`Older child added: ${name || 'unnamed'}`); continue;
         }
         const born = age !== null && toDays(c.date.current) !== null ? addDays(c.date.current, -age) : null;
@@ -259,6 +262,36 @@ function applyChildren(list, justBorn, events) {
 
 const SLEEP = ['asleep', 'awake', 'drowsy', 'napping'], FEED = ['breast', 'formula', 'mixed', 'solids'], HEALTH = ['normal', 'fever', 'cold', 'sick', 'injured', 'recovering'];
 const strs = a => (Array.isArray(a) ? a.filter(x => typeof x === 'string' && x.trim()).map(x => x.trim().slice(0, 40)).slice(0, 4) : []);
+
+function applyChildUpdates(list, events) {
+    if (!Array.isArray(list)) return;
+    const c = C(), all = [...c.family.babies, ...(c.family.grown || [])];
+    let ageChanged = false;
+    const addTraits = (target, key, values) => {
+        if (!Array.isArray(values)) return;
+        target[key] ||= [];
+        for (const value of values) {
+            if (typeof value !== 'string' || !value.trim()) continue;
+            const trait = value.trim().slice(0, 40);
+            if (!target[key].some(x => String(x).toLowerCase() === trait.toLowerCase())) target[key].push(trait);
+        }
+        target[key] = target[key].slice(-8);
+    };
+    for (const u of list.slice(0, 12)) {
+        if (!u || typeof u !== 'object' || typeof u.name !== 'string' || !u.name.trim()) continue;
+        const name = u.name.trim().toLowerCase();
+        const child = all.find(x => String(x.name || '').trim().toLowerCase() === name);
+        if (!child) continue;
+        if (Number.isFinite(Number(u.age_days)) && u.age_days !== null) {
+            const age = Math.max(0, Math.round(Number(u.age_days)));
+            if (age !== child.age) { child.age = age; ageChanged = true; events.push(`${child.name}: age updated`); }
+        }
+        if (['alpha', 'beta', 'omega', 'not_presented'].includes(String(u.secondary_gender || '').toLowerCase())) child.secondaryGender = String(u.secondary_gender).toLowerCase();
+        addTraits(child, 'personality', u.personality);
+        addTraits(child, 'appearance', u.appearance);
+    }
+    if (ageChanged) updateBabies();
+}
 
 function applyBabyUpdates(list, events) {
     const fam = C().family.babies;

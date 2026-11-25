@@ -179,3 +179,7 @@ details.ovr-ib .ovr-ib-titlebox .ovr-ib-title { flex: 0 1 auto; }
 .extensionsMenuExtensionIcon .ovr-ao { width: 1.1em; height: 1.1em; vertical-align: middle; }
 .ovr-popup-head .ovr-ao { margin-right: 6px; color: var(--ovr-accent-var); }
 details.ovr-ib .ovr-ib-icon .ovr-ao { width: 12px; height: 12px; color: var(--ib-accent); }
+
+/* Child growth-goal progress */
+.ovr-growth { display: grid; gap: 4px; margin: 7px 0; }
+.ovr-grown { display: grid; gap: 8px; margin-top: 10px; }

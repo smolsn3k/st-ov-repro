@@ -69,19 +69,25 @@ function babyCard(b) {
     const need = careNeeds(b), norm = careNorms(b.age, b), st = stageOf(b.age);
     const row = (label, html) => `<label class="ovr-row"><span>${label}</span>${html}</label>`;
     const f = key => `data-baby="${b.id}" data-f="${key}"`;
+    const done = b.milestones.length, total = MILESTONES.length, pct = Math.round(done / total * 100);
     const chips = b.milestones.map(m => `<span class="ovr-chip">${esc(m.text)}</span>`).join('') || '<small>none yet</small>';
+    const nextGoal = MILESTONES.find(m => !b.milestones.some(x => x.key === m.key));
+    const goals = `<div class="ovr-growth"><small>Growth goals: ${done}/${total} milestones (${pct}%)</small>${bar(done, total, 'baby')}<small class="ovr-dim">${nextGoal ? `Next: ${esc(nextGoal.label)} (around day ${Math.max(0, nextGoal.base)})` : 'All listed milestones reached'}</small></div>`;
     return `<div class="ovr-card"><div><b>${esc(labelOf(b))}</b> <small>${sexWord(b.sex)}, ${esc(nameOf(b.parent))}'s ${b.via === 'hatch' ? 'hatchling' : 'child'}${b.otherParent ? ` with ${esc(b.otherParent)}` : ''}, ${ageWords(b.age)} (${st.label})${b.method === 'csection' ? ', C-section' : ''}</small></div>
     ${b.condition ? `<small>Born with: ${esc(b.condition)}${b.conditionKnown ? '' : ' (not yet noticed in story)'}</small>` : ''}
     <small>Now: ${need.sleep}, feeding ${need.feeding}, diaper ${need.diaper}${need.note ? ', ' + esc(need.note) : ''}</small>
     <small>Typical for this age: ${esc(norm.feeding)}; ${esc(norm.sleep)}.${b.teething ? ' Teething.' : ''}${b.colicky ? ' Colic phase.' : ''}${norm.upcoming ? ' Soon: ' + esc(norm.upcoming) + '.' : ''}</small>
     ${row('Name', `<input type="text" class="text_pole" ${f('name')} value="${esc(b.name)}" placeholder="unnamed">`)}
+    ${row('Sex', `<select class="text_pole" ${f('sex')}><option value="F" ${b.sex === 'F' ? 'selected' : ''}>Girl</option><option value="M" ${b.sex === 'M' ? 'selected' : ''}>Boy</option></select>`)}
+    ${row('Age (years)', `<input type="number" min="0" step="0.1" class="text_pole" ${f('ageYears')} value="${((Number(b.age) || 0) / 365.25).toFixed(1)}">`)}
+    ${row('Secondary gender', `<select class="text_pole" ${f('secondaryGender')}><option value="not_presented" ${!b.secondaryGender || b.secondaryGender === 'not_presented' ? 'selected' : ''}>Not presented</option><option value="alpha" ${b.secondaryGender === 'alpha' ? 'selected' : ''}>Alpha</option><option value="beta" ${b.secondaryGender === 'beta' ? 'selected' : ''}>Beta</option><option value="omega" ${b.secondaryGender === 'omega' ? 'selected' : ''}>Omega</option></select>`)}
     ${row('Health', sel(HEALTH_OPTS, b.health, f('health')))}
     ${row('Mood', `<input type="text" class="text_pole" ${f('mood')} value="${esc(b.mood)}" placeholder="calm, fussy...">`)}
     ${row('Sleep', sel(SLEEP_OPTS, b.sleep, f('sleep')))}
     ${row('Feeding', sel(FEED_OPTS, b.feeding, f('feeding')))}
     ${row('Personality', `<input type="text" class="text_pole" ${f('personality')} value="${esc(b.personality.join(', '))}" placeholder="comma separated">`)}
     ${row('Appearance', `<input type="text" class="text_pole" ${f('appearance')} value="${esc(b.appearance.join(', '))}" placeholder="comma separated">`)}
-    <div><small>Milestones (${b.milestones.length}/${MILESTONES.length}):</small> ${chips}</div>
+    ${goals}<div><small>Milestones (${done}/${total}):</small> ${chips}</div>
     <div class="ovr-btns">
         <div class="menu_button ovr-btn" data-act="fed" data-b="${b.id}">Fed</div>
         <div class="menu_button ovr-btn" data-act="changed" data-b="${b.id}">Diaper changed</div>
@@ -115,7 +121,10 @@ function card(k) {
     else if (e.postpartumDays > 0 && e.postpartumDays <= H.postpartumLength(k)) prog = [e.postpartumDays, H.postpartumLength(k), `day ${e.postpartumDays} of ${H.postpartumLength(k)}`];
     else if (!carrying && !e.postpartumDays) prog = [e.cycleDay, s.cycleLength, `cycle day ${e.cycleDay} of ${s.cycleLength}`];
 
-    const head = `<div class="ovr-card-head"><div><b>${esc(nameOf(k))}</b> <span class="ovr-pill">${phys.label}</span> <span class="ovr-pill soft">${live ? 'live birth' : 'oviposition'}</span></div><span class="ovr-badge ${BADGE[ph.id] || 'calm'}">${esc(ph.label)}</span></div>`;
+    const genderOptions = [['not_presented', 'Not presented'], ['alpha', 'Alpha'], ['beta', 'Beta'], ['omega', 'Omega']];
+    const secondaryGender = e.secondaryGender || 'not_presented';
+    const genderControl = `<label class="ovr-row"><span>Secondary gender</span><select class="text_pole" data-ent="${k}" data-path="secondaryGender">${genderOptions.map(([v, label]) => `<option value="${v}" ${secondaryGender === v ? 'selected' : ''}>${label}</option>`).join('')}</select></label>`;
+    const head = `<div class="ovr-card-head"><div><b>${esc(nameOf(k))}</b> <span class="ovr-pill">${phys.label}</span> <span class="ovr-pill soft">${live ? 'live birth' : 'oviposition'}</span></div><span class="ovr-badge ${BADGE[ph.id] || 'calm'}">${esc(ph.label)}</span></div>${genderControl}`;
     const top = [];
     if (prog) top.push(`${bar(prog[0], prog[1], BADGE[ph.id] || '')}<small class="ovr-dim">${prog[2]}</small>`);
     if (ph.fertility > 0) {
@@ -298,7 +307,7 @@ export function render() {
             ${c.reveal.era === 'custom' ? `<label class="ovr-row"><span>Practitioner</span><input type="text" class="text_pole" data-c="reveal.practitioner" value="${esc(c.reveal.practitioner)}" placeholder="healer, witch doctor, medic..."></label><textarea class="text_pole" data-c="reveal.custom" rows="2" placeholder="How can a pregnancy or clutch be discovered in this setting?">${esc(c.reveal.custom)}</textarea>` : ''}`, 'ovr-sub')}`)}
     ${sec('status', 'Status', trackedKeys().map(card).join(''))}
     ${sec('children', 'Children', `${c.family.babies.map(babyCard).join('') || '<small>No children yet.</small>'}
-        ${c.family.grown.length ? `<small class="ovr-dim">Older children: ${c.family.grown.map(x => esc(x.name || 'unnamed') + ' (' + ageWords(x.age) + ')').join(', ')}</small>` : ''}
+        ${c.family.grown.length ? `<div class="ovr-grown"><b>Older children</b>${c.family.grown.map(x => `<div class="ovr-card"><small>${esc(x.name || 'unnamed')} · ${ageWords(x.age)}</small><label class="ovr-row"><span>Name</span><input class="text_pole" data-grown="${x.id}" data-f="name" value="${esc(x.name || '')}"></label><label class="ovr-row"><span>Age (years)</span><input type="number" min="0" step="0.1" class="text_pole" data-grown="${x.id}" data-f="ageYears" value="${((Number(x.age) || 0) / 365.25).toFixed(1)}"></label><label class="ovr-row"><span>Secondary gender</span><select class="text_pole" data-grown="${x.id}" data-f="secondaryGender"><option value="not_presented" ${!x.secondaryGender || x.secondaryGender === 'not_presented' ? 'selected' : ''}>Not presented</option><option value="alpha" ${x.secondaryGender === 'alpha' ? 'selected' : ''}>Alpha</option><option value="beta" ${x.secondaryGender === 'beta' ? 'selected' : ''}>Beta</option><option value="omega" ${x.secondaryGender === 'omega' ? 'selected' : ''}>Omega</option></select></label><label class="ovr-row"><span>Personality</span><input class="text_pole" data-grown="${x.id}" data-f="personality" value="${esc((x.personality || []).join(', '))}"></label><label class="ovr-row"><span>Appearance</span><input class="text_pole" data-grown="${x.id}" data-f="appearance" value="${esc((x.appearance || []).join(', '))}"></label></div>`).join('')}</div>` : ''}
         ${sec('add-child', 'Add a child manually', addChildForm(), 'ovr-sub')}`)}
     ${sec('tree', 'Family tree', tree())}
     ${sec('history', `Undo history (${c.history.length})`, c.history.length ? c.history.map((h, i) => `<div class="ovr-row"><small>${esc(h.label)}${h.date ? ' · ' + esc(showDate(h.date)) : ''}</small><div class="menu_button ovr-btn" data-act="hist" data-i="${i}">Restore to before this</div></div>`).reverse().join('') : '<small class="ovr-dim">No checkpoints yet. One is saved before every automatic or manual change.</small>')}
@@ -385,6 +394,16 @@ export function mount() {
         if (!b) return;
         const f = el.dataset.f, v = el.value.trim();
         if (f === 'personality' || f === 'appearance') b[f] = v.split(',').map(x => x.trim()).filter(Boolean).slice(0, 8);
+        else if (f === 'ageYears') b.age = Math.max(0, Math.round((Number(v) || 0) * 365.25));
+        else b[f] = v;
+        saveC(); refresh();
+    });
+    onDoc('change', '[data-grown]', e => {
+        const el = e.currentTarget, b = C().family.grown.find(x => x.id === Number(el.dataset.grown));
+        if (!b) return;
+        const f = el.dataset.f, v = el.value.trim();
+        if (f === 'personality' || f === 'appearance') b[f] = v.split(',').map(x => x.trim()).filter(Boolean).slice(0, 8);
+        else if (f === 'ageYears') b.age = Math.max(0, Math.round((Number(v) || 0) * 365.25));
         else b[f] = v;
         saveC(); refresh();
     });
