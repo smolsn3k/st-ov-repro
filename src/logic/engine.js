@@ -1,6 +1,6 @@
 // Reproduction logic: heat/rut cycle, conception, pregnancy, oviposition, postpartum/lactation. No menstruation.
 import { S, C, PHYS, ERAS, contraMult, trackedKeys, nameOf, newBaby, hooks } from '../core/core.js';
-import { ageBabies } from './baby.js';
+import { ageBabies, archiveBabies } from './baby.js';
 import { addDays, diffDays, toDays, parseStoryDate, extractTime, FREE_BASE } from '../core/dates.js';
 import * as H from './health.js';
 import * as D from '../core/data.js';
@@ -229,17 +229,20 @@ function finishBirth(k, method, lactating) {
 }
 
 // Manually add a child (any birth date; age is derived from the chat date).
-export function addManualChild({ name = '', sex = 'F', parent = 'user', otherParent = '', born = null, via = 'birth', method = 'natural' } = {}) {
+export function addManualChild({ name = '', sex = 'F', parent = 'user', otherParent = '', born = null, age: ageGiven = null, via = 'birth', method = 'natural' } = {}) {
     const fam = C().family, cur = C().date.current;
     const b = newBaby(fam, { name: String(name).trim().slice(0, 40), sex: sex === 'M' ? 'M' : 'F', parent, via: via === 'hatch' ? 'hatch' : 'birth', born: born || cur, otherParent: otherParent || H.secondParentName(parent), method });
-    const age = b.born != null && cur != null ? diffDays(b.born, cur) : 0;
+    const age = ageGiven != null ? ageGiven : b.born != null && cur != null ? diffDays(b.born, cur) : 0;
     b.age = Math.max(0, age ?? 0);
+    if (ageGiven != null) b.born = cur != null ? toDays(cur) - b.age : null;      // an age with a story date gives a birth date, otherwise only the age
     if (S().inheritAppearance) {
         const l = H.inheritedLooks(parent);
         if (l.eyes) b.appearance.push(`${l.eyes} eyes`);
         if (l.hair) b.appearance.push(`${l.hair} hair`);
     }
     fam.babies.push(b);
+    b.grown = b.age >= S().babyMaxAgeDays;           // already past the baby-care age: straight to the older children, no dialog
+    if (b.grown) archiveBabies([b.id]);
     ageBabies(0);
     return b;
 }

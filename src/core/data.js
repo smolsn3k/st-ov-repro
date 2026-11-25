@@ -137,6 +137,8 @@ export function growthStageOf(ageDays) {
     }
     return GROWTH_STAGES[GROWTH_STAGES.length - 1];
 }
+
+export const LACTATION = {
     producing: 'is producing milk: engorgement, leaking, night feeds, milk letdown when the baby cries',
     drying: 'milk supply is tapering off: less fullness, fewer feeds',
 };
