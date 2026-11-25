@@ -192,7 +192,7 @@ export const saveS = () => ctx().saveSettingsDebounced();
 
 export function newBaby(fam, props) {
     return { id: fam.nextId++, name: '', sex: 'F', parent: 'user', via: 'birth', born: null, age: 0, health: 'normal', mood: '', sleep: '', feeding: '',
-        teething: false, colicky: false, milestones: [], personality: [], appearance: [], lastFedH: null, lastChangedH: null,
+        teething: false, colicky: false, milestones: [], personality: [], appearance: [], secondaryGender: 'not_presented', lastFedH: null, lastChangedH: null,
         otherParent: '', condition: '', conditionKnown: false, method: 'natural', gradAsked: false, ...props };
 }
 

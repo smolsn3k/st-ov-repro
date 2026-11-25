@@ -83,9 +83,9 @@ function buildMessages(idx) {
     const fam = c.family.babies;
     const grown = c.family.grown || [];
     const childBlock = (fam.length || grown.length) ? [
-        `Existing children (use exact names as identifiers): ${[...fam, ...grown].map(b => `${b.name || labelOf(b)} (${b.sex === 'M' ? 'boy' : 'girl'}, ${b.age ?? 0} days old${grown.includes(b) ? ', older child' : ''})`).join('; ')}.`,
+        `Existing children (use exact names as identifiers): ${[...fam, ...grown].map(b => `${b.name || labelOf(b)} (${b.sex === 'M' ? 'boy' : 'girl'}, ${b.age ?? 0} days old${b.secondaryGender && b.secondaryGender !== 'not_presented' ? `, secondary gender ${b.secondaryGender}` : ''}${grown.includes(b) ? ', older child' : ''})`).join('; ')}.`,
         ' "baby_updates": [ {"label": "<active baby label>", "name": "string or null", "mood": "1-3 words or null", "sleep": "asleep|awake|drowsy|napping|null", "feeding": "breast|formula|mixed|solids|null", "fed": bool, "diaper_changed": bool, "health": "normal|fever|cold|sick|injured|recovering|null", "personality": ["short trait"], "appearance": ["short trait"]} ],',
-        ' "child_updates": [ {"name": "<exact existing child name>", "age_days": integer or null, "personality": ["new short traits"], "appearance": ["new visible traits"]} ] // only update a child clearly mentioned in the newest message; do not infer changes',
+        ' "child_updates": [ {"name": "<exact existing child name>", "age_days": integer or null, "secondary_gender": "alpha|beta|omega|not_presented|null", "personality": ["new short traits"], "appearance": ["new visible traits"]} ] // only update a child clearly mentioned in the newest message; do not infer changes',
     ] : [];
     const system = 'You are a precise story-state extractor for a fictional roleplay between adult characters. You only classify what the text literally states. Reply with a single JSON object and nothing else.';
     const user = [
@@ -250,7 +250,7 @@ function applyChildren(list, justBorn, events) {
         if (fresh && (it.born_now === true || (age !== null && age <= 3))) { if (name) { fresh.name = name; events.push(`Baby named ${name}`); } if (sex) fresh.sex = sex; continue; }
         if (!name && it.born_now !== true) continue;                      // an unnamed mention of an old child is not enough to create one
         if (age !== null && age >= s.babyMaxAgeDays) {                   // already grown: goes straight to the older children list
-            fam.grown.push({ id: fam.nextId++, name, sex: sex || 'F', parent: it.owner, age, personality: [], appearance: [], otherParent: other || H.secondParentName(it.owner), milestones: 0 });
+            fam.grown.push({ id: fam.nextId++, name, sex: sex || 'F', parent: it.owner, age, secondaryGender: 'not_presented', personality: [], appearance: [], otherParent: other || H.secondParentName(it.owner), milestones: 0 });
             events.push(`Older child added: ${name || 'unnamed'}`); continue;
         }
         const born = age !== null && toDays(c.date.current) !== null ? addDays(c.date.current, -age) : null;
@@ -286,6 +286,7 @@ function applyChildUpdates(list, events) {
             const age = Math.max(0, Math.round(Number(u.age_days)));
             if (age !== child.age) { child.age = age; ageChanged = true; events.push(`${child.name}: age updated`); }
         }
+        if (['alpha', 'beta', 'omega', 'not_presented'].includes(String(u.secondary_gender || '').toLowerCase())) child.secondaryGender = String(u.secondary_gender).toLowerCase();
         addTraits(child, 'personality', u.personality);
         addTraits(child, 'appearance', u.appearance);
     }
