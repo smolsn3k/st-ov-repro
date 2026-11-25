@@ -169,6 +169,7 @@ function carrierCard(k) {
 
 // ── Baby cards ──
 function babyCard(b) {
+    const isGrown = C().family.grown.some(g => g.id === b.id);
     const need = careNeeds(b), st = stageOf(b.age);
     const sexIcon = b.sex === 'M' ? ic('mars') : ic('venus'), sexCol = b.sex === 'M' ? 'blue' : 'pink';
     const diaperClean = !/chang|dirty|wet/i.test(need.diaper || '');
@@ -177,19 +178,19 @@ function babyCard(b) {
     const tiles = [
         stat('heart-pulse', 'green', 'Health', hpHtml),
         stat('face-smile', 'purple', 'Mood', esc(b.mood || '—')),
-        stat('bottle-water', 'blue', 'Feeding', feeding),
+        !isGrown ? stat('bottle-water', 'blue', 'Feeding', feeding) : '',
         stat('moon', 'purple', 'Sleep', esc(b.sleep || need.sleep || '—')),
-        stat('baby-carriage', diaperClean ? 'green' : 'orange', 'Diaper', diaperClean ? esc(need.diaper) : `<span class="ovr-ib-warn">${esc(need.diaper)}</span>`),
+        !isGrown ? stat('baby-carriage', diaperClean ? 'green' : 'orange', 'Diaper', diaperClean ? esc(need.diaper) : `<span class="ovr-ib-warn">${esc(need.diaper)}</span>`) : '',
         b.teething ? stat('tooth', 'blue', 'Teeth', 'Coming in') : '',
         b.colicky ? stat('face-sad-tear', 'pink', 'Colic', 'Yes') : '',
         b.otherParent ? stat('user', 'blue', 'Other parent', esc(b.otherParent)) : '',
     ].filter(Boolean).join('');
-    const miles = b.milestones.slice(-2).map(m => m.text).join(', ');
-    const notes = (b.personality.length ? note(`${ic('brain')} ${esc(b.personality.join(', '))}`) : '')
-        + (b.appearance.length ? note(`${ic('eye')} ${esc(b.appearance.join(', '))}`) : '')
+    const miles = (b.milestones || []).slice(-2).map(m => m.text).join(', ');
+    const notes = ((b.personality || []).length ? note(`${ic('brain')} ${esc(b.personality.join(', '))}`) : '')
+        + ((b.appearance || []).length ? note(`${ic('eye')} ${esc(b.appearance.join(', '))}`) : '')
         + (b.condition && b.conditionKnown ? note(`${ic('star')} ${esc(b.condition)}`, 'special') : '')
         + (miles ? note(`${ic('star')} ${esc(miles)}`) : '')
-        + (need.note ? note(`${ic('lightbulb')} ${esc(need.note)}`, 'rec') : '');
+        + (need.note && !isGrown ? note(`${ic('lightbulb')} ${esc(need.note)}`, 'rec') : '');
     return card(`b-${b.id}`, 'baby', 'baby', esc(labelOf(b)), `<span class="ovr-ib-${sexCol}">${sexIcon}</span> ${esc(ageWords(b.age))}`, 'baby', `<div class="ovr-ib-grid">${tiles}${notes}</div>`);
 }
 
@@ -206,7 +207,7 @@ function brief(k) {
 function html() {
     const s = S(), fam = C().family, keys = trackedKeys();
     const cards = keys.map(carrierCard);
-    const kids = s.infoblockBabies ? fam.babies : [];
+    const kids = s.infoblockBabies ? [...fam.babies, ...fam.grown] : [];
     cards.push(...kids.map(babyCard));
     if (!cards.length) return '';
     if (cards.length === 1) return cards[0];

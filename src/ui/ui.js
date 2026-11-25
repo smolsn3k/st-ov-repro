@@ -1,5 +1,5 @@
 // Settings panel (Extensions drawer): global settings, this-chat settings, status cards, children, family tree, history.
-import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, contraLabel, contraProtection, trackedKeys, nameOf, hooks, showDate, dateLabel, hasDate, STAGES, RUT_STAGES, LEVELS, nearestLevel, chanceWord, fertilityWord } from '../core/core.js';
+import { ctx, S, C, saveS, saveC, PHYS, ERAS, CONTRA, contraLabel, contraProtection, trackedKeys, nameOf, hooks, showDate, dateLabel, hasDate, STAGES, RUT_STAGES, LEVELS, nearestLevel, chanceWord, fertilityWord, newBaby } from '../core/core.js';
 import * as E from '../logic/engine.js';
 import * as H from '../logic/health.js';
 import * as D from '../core/data.js';
@@ -65,27 +65,27 @@ function openGradDialog(ids) {
 }
 
 // ── Cards ──
-function babyCard(b) {
+function babyCard(b, isGrown = false) {
     const need = careNeeds(b), norm = careNorms(b.age, b), st = stageOf(b.age);
     const row = (label, html) => `<label class="ovr-row"><span>${label}</span>${html}</label>`;
     const f = key => `data-baby="${b.id}" data-f="${key}"`;
     const chips = b.milestones.map(m => `<span class="ovr-chip">${esc(m.text)}</span>`).join('') || '<small>none yet</small>';
     return `<div class="ovr-card"><div><b>${esc(labelOf(b))}</b> <small>${sexWord(b.sex)}, ${esc(nameOf(b.parent))}'s ${b.via === 'hatch' ? 'hatchling' : 'child'}${b.otherParent ? ` with ${esc(b.otherParent)}` : ''}, ${ageWords(b.age)} (${st.label})${b.method === 'csection' ? ', C-section' : ''}</small></div>
     ${b.condition ? `<small>Born with: ${esc(b.condition)}${b.conditionKnown ? '' : ' (not yet noticed in story)'}</small>` : ''}
-    <small>Now: ${need.sleep}, feeding ${need.feeding}, diaper ${need.diaper}${need.note ? ', ' + esc(need.note) : ''}</small>
-    <small>Typical for this age: ${esc(norm.feeding)}; ${esc(norm.sleep)}.${b.teething ? ' Teething.' : ''}${b.colicky ? ' Colic phase.' : ''}${norm.upcoming ? ' Soon: ' + esc(norm.upcoming) + '.' : ''}</small>
+    ${!isGrown ? `<small>Now: ${need.sleep}, feeding ${need.feeding}, diaper ${need.diaper}${need.note ? ', ' + esc(need.note) : ''}</small>
+    <small>Typical for this age: ${esc(norm.feeding)}; ${esc(norm.sleep)}.${b.teething ? ' Teething.' : ''}${b.colicky ? ' Colic phase.' : ''}${norm.upcoming ? ' Soon: ' + esc(norm.upcoming) + '.' : ''}</small>` : '<small>Older child (past baby care stage)</small>'}
     ${row('Name', `<input type="text" class="text_pole" ${f('name')} value="${esc(b.name)}" placeholder="unnamed">`)}
     ${row('Health', sel(HEALTH_OPTS, b.health, f('health')))}
     ${row('Mood', `<input type="text" class="text_pole" ${f('mood')} value="${esc(b.mood)}" placeholder="calm, fussy...">`)}
-    ${row('Sleep', sel(SLEEP_OPTS, b.sleep, f('sleep')))}
-    ${row('Feeding', sel(FEED_OPTS, b.feeding, f('feeding')))}
+    ${!isGrown ? row('Sleep', sel(SLEEP_OPTS, b.sleep, f('sleep'))) : ''}
+    ${!isGrown ? row('Feeding', sel(FEED_OPTS, b.feeding, f('feeding'))) : ''}
     ${row('Personality', `<input type="text" class="text_pole" ${f('personality')} value="${esc(b.personality.join(', '))}" placeholder="comma separated">`)}
     ${row('Appearance', `<input type="text" class="text_pole" ${f('appearance')} value="${esc(b.appearance.join(', '))}" placeholder="comma separated">`)}
     <div><small>Milestones (${b.milestones.length}/${MILESTONES.length}):</small> ${chips}</div>
     <div class="ovr-btns">
-        <div class="menu_button ovr-btn" data-act="fed" data-b="${b.id}">Fed</div>
+        ${!isGrown ? `<div class="menu_button ovr-btn" data-act="fed" data-b="${b.id}">Fed</div>
         <div class="menu_button ovr-btn" data-act="changed" data-b="${b.id}">Diaper changed</div>
-        <div class="menu_button ovr-btn" data-act="grow" data-b="${b.id}">Move to older children</div>
+        <div class="menu_button ovr-btn" data-act="grow" data-b="${b.id}">Move to older children</div>` : `<div class="menu_button ovr-btn" data-act="ungrow" data-b="${b.id}">Move back to babies</div>`}
         <div class="menu_button ovr-btn" data-act="delbaby" data-b="${b.id}">Remove</div></div></div>`;
 }
 
@@ -297,8 +297,7 @@ export function render() {
         ${sec('c-reveal', 'Reveal Mode', `<label class="ovr-row"><span>Era</span><select class="text_pole" data-c="reveal.era">${opts(ERAS, c.reveal.era)}</select></label><small class="ovr-dim">Medical help in this era: ${esc(H.practitioner())}</small>
             ${c.reveal.era === 'custom' ? `<label class="ovr-row"><span>Practitioner</span><input type="text" class="text_pole" data-c="reveal.practitioner" value="${esc(c.reveal.practitioner)}" placeholder="healer, witch doctor, medic..."></label><textarea class="text_pole" data-c="reveal.custom" rows="2" placeholder="How can a pregnancy or clutch be discovered in this setting?">${esc(c.reveal.custom)}</textarea>` : ''}`, 'ovr-sub')}`)}
     ${sec('status', 'Status', trackedKeys().map(card).join(''))}
-    ${sec('children', 'Children', `${c.family.babies.map(babyCard).join('') || '<small>No children yet.</small>'}
-        ${c.family.grown.length ? `<small class="ovr-dim">Older children: ${c.family.grown.map(x => esc(x.name || 'unnamed') + ' (' + ageWords(x.age) + ')').join(', ')}</small>` : ''}
+    ${sec('children', 'Children', `${[...c.family.babies, ...c.family.grown].map(b => babyCard(b, c.family.grown.includes(b))).join('') || '<small>No children yet.</small>'}
         ${sec('add-child', 'Add a child manually', addChildForm(), 'ovr-sub')}`)}
     ${sec('tree', 'Family tree', tree())}
     ${sec('history', `Undo history (${c.history.length})`, c.history.length ? c.history.map((h, i) => `<div class="ovr-row"><small>${esc(h.label)}${h.date ? ' · ' + esc(showDate(h.date)) : ''}</small><div class="menu_button ovr-btn" data-act="hist" data-i="${i}">Restore to before this</div></div>`).reverse().join('') : '<small class="ovr-dim">No checkpoints yet. One is saved before every automatic or manual change.</small>')}
@@ -381,7 +380,7 @@ export function mount() {
         saveC(); refresh();
     });
     onDoc('change', '[data-baby]', e => {
-        const el = e.currentTarget, b = C().family.babies.find(x => x.id === +el.dataset.baby);
+        const el = e.currentTarget, b = C().family.babies.find(x => x.id === +el.dataset.baby) || C().family.grown.find(x => x.id === +el.dataset.baby);
         if (!b) return;
         const f = el.dataset.f, v = el.value.trim();
         if (f === 'personality' || f === 'appearance') b[f] = v.split(',').map(x => x.trim()).filter(Boolean).slice(0, 8);
@@ -433,14 +432,26 @@ export function mount() {
                 catch (err) { return note(`Analysis failed: ${err.message || err}`, 'warning'); }
             }
             case 'fed': case 'changed': {
-                const b = c.family.babies.find(x => x.id === +el.dataset.b), now = nowHours();
+                const b = c.family.babies.find(x => x.id === +el.dataset.b) || c.family.grown.find(x => x.id === +el.dataset.b), now = nowHours();
                 if (!b) return;
                 if (now === null) return note('Set a story date first so feeding times can be tracked', 'warning');
                 if (act === 'fed') b.lastFedH = now; else b.lastChangedH = now;
                 return done();
             }
             case 'grow': archiveBabies([+el.dataset.b]); return done();
-            case 'delbaby': if (confirm('Remove this child?')) c.family.babies = c.family.babies.filter(x => x.id !== +el.dataset.b); return done();
+            case 'ungrow': {
+                const fam = c.family, i = fam.grown.findIndex(x => x.id === +el.dataset.b);
+                if (i >= 0) {
+                    const g = fam.grown.splice(i, 1)[0];
+                    fam.babies.push({ ...newBaby(fam, {}), ...g });
+                    note(`${labelOf(g)} moved back to babies`);
+                }
+                return done();
+            }
+            case 'delbaby': if (confirm('Remove this child?')) {
+                c.family.babies = c.family.babies.filter(x => x.id !== +el.dataset.b);
+                c.family.grown = c.family.grown.filter(x => x.id !== +el.dataset.b);
+            } return done();
             case 'addchild': {
                 const v = id => $(`#ovr_ac_${id}`).val();
                 const bornText = (v('born') || '').trim(), ageDays = parseAgeDays(bornText);
