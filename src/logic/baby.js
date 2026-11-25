@@ -165,7 +165,7 @@ export function archiveBabies(ids) {
         const i = fam.babies.findIndex(x => x.id === id);
         if (i < 0) continue;
         const [b] = fam.babies.splice(i, 1);
-        fam.grown.push({ id: b.id, name: b.name, sex: b.sex, parent: b.parent, age: b.age, personality: b.personality, appearance: b.appearance, otherParent: b.otherParent, milestones: b.milestones.length });
+        fam.grown.push({ id: b.id, name: b.name, sex: b.sex, parent: b.parent, age: b.age, personality: b.personality, appearance: b.appearance, otherParent: b.otherParent, milestones: b.milestones, health: b.health, mood: b.mood, sleep: b.sleep, secondGender: b.secondGender, via: b.via, method: b.method });
         note(`${labelOf(b)} is now ${ageWords(b.age)} old and moves to the older children`);
     }
 }

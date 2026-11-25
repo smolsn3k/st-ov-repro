@@ -174,15 +174,3 @@ export function resolveWhen(text, cur, order = 'DMY') {
     if (yl && cur !== null && cur !== undefined) return placeYearless(yl.m, yl.d, toDays(cur), true);
     return null;
 }
-
-
-// A child's age in days: "newborn", "3 weeks", "6 months ago", "2 years", or a bare number (= years). null if it is not an age.
-export function parseAgeDays(text) {
-    const t = String(text || '').trim().toLowerCase();
-    if (!t || /^(new ?born|just born|today|now|0)$/.test(t)) return 0;
-    if (/^\d+(\.\d+)?$/.test(t)) return Math.round(parseFloat(t) * 365);
-    const m = /^(\d+(?:\.\d+)?)\s*(d|days?|w|wks?|weeks?|m|mos?|months?|y|yrs?|years?)(?:\s+(?:old|ago))?$/.exec(t);
-    if (!m) return null;
-    const u = m[2], mult = /^d/.test(u) ? 1 : /^w/.test(u) ? 7 : /^m/.test(u) ? 30 : 365;
-    return Math.round(parseFloat(m[1]) * mult);
-}

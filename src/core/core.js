@@ -2,6 +2,8 @@
 export const NAME = 'omegaverse_repro';
 export const PROMPT_KEY = 'omegaverse_repro';
 import { diffDays, toDays, pretty, prettyNoYear, FREE_BASE } from './dates.js';
+import { GROWTH_STAGES, MILESTONES, growthStageOf } from './data.js';
+export { GROWTH_STAGES, MILESTONES, growthStageOf };
 export const ctx = () => SillyTavern.getContext();
 export const hooks = { onBirth: null, onGrad: null };   // set by the UI (dialogs)
 
@@ -10,6 +12,10 @@ export const PHYS = {
     'f-omega': { label: 'Female omega', sex: 'female', role: 'omega' },
     'm-alpha': { label: 'Male alpha', sex: 'male', role: 'alpha' },
     'f-alpha': { label: 'Female alpha', sex: 'female', role: 'alpha' },
+    'm-beta': { label: 'Male beta', sex: 'male', role: 'beta' },
+    'f-beta': { label: 'Female beta', sex: 'female', role: 'beta' },
+    'm-unset': { label: 'Male (undeclared)', sex: 'male', role: 'unset' },
+    'f-unset': { label: 'Female (undeclared)', sex: 'female', role: 'unset' },
 };
 
 // Reveal Mode: how a pregnancy / clutch can be discovered in the story's era.
@@ -192,7 +198,7 @@ export const saveS = () => ctx().saveSettingsDebounced();
 export function newBaby(fam, props) {
     return { id: fam.nextId++, name: '', sex: 'F', parent: 'user', via: 'birth', born: null, age: 0, health: 'normal', mood: '', sleep: '', feeding: '',
         teething: false, colicky: false, milestones: [], personality: [], appearance: [], lastFedH: null, lastChangedH: null,
-        otherParent: '', condition: '', conditionKnown: false, method: 'natural', gradAsked: false, ...props };
+        otherParent: '', condition: '', conditionKnown: false, method: 'natural', gradAsked: false, secondGender: 'unset', ...props };
 }
 
 // v1.0.0 stored children per parent; they now live in the shared family list.
