@@ -247,7 +247,7 @@ function applyChildren(list, justBorn, events) {
         if (fresh && (it.born_now === true || (age !== null && age <= 3))) { if (name) { fresh.name = name; events.push(`Baby named ${name}`); } if (sex) fresh.sex = sex; continue; }
         if (!name && it.born_now !== true) continue;                      // an unnamed mention of an old child is not enough to create one
         if (age !== null && age >= s.babyMaxAgeDays) {                   // already grown: goes straight to the older children list
-            fam.grown.push({ id: fam.nextId++, name, sex: sex || 'F', parent: it.owner, age, personality: [], appearance: [], otherParent: other || H.secondParentName(it.owner), milestones: [], health: 'normal', mood: '', sleep: '', secondGender: 'unset', via: 'birth', method: 'natural' });
+            fam.grown.push({ id: fam.nextId++, name, sex: sex || 'F', parent: it.owner, age, personality: [], appearance: [], otherParent: other || H.secondParentName(it.owner), milestones: 0 });
             events.push(`Older child added: ${name || 'unnamed'}`); continue;
         }
         const born = age !== null && toDays(c.date.current) !== null ? addDays(c.date.current, -age) : null;

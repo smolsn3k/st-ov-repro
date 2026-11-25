@@ -102,42 +102,6 @@ export const POSTPARTUM = {
     ],
 };
 
-export const GROWTH_STAGES = [
-    { key: 'newborn', label: 'newborn', maxDays: 30 },
-    { key: 'infant', label: 'infant', maxDays: 365 },
-    { key: 'toddler', label: 'toddler (1-3 years)', maxDays: 1095 },
-    { key: 'preschool', label: 'preschool (3-7 years)', maxDays: 2555 },
-    { key: 'school', label: 'school age (7-12 years)', maxDays: 4380 },
-    { key: 'teen', label: 'teenager', maxDays: 6570 },
-    { key: 'adult', label: 'adult', maxDays: Infinity },
-];
-
-export const MILESTONES = [
-    { key: 'smile', label: 'first smile', base: 40, range: 12 },
-    { key: 'head', label: 'holds head steady', base: 75, range: 15 },
-    { key: 'roll', label: 'rolls over', base: 120, range: 20 },
-    { key: 'laugh', label: 'laughs out loud', base: 130, range: 20 },
-    { key: 'sit', label: 'sits up without support', base: 185, range: 25 },
-    { key: 'solids', label: 'first solid food', base: 183, range: 10 },
-    { key: 'tooth', label: 'first tooth appears', base: 195, range: 55 },
-    { key: 'crawl', label: 'crawls', base: 250, range: 35 },
-    { key: 'stand', label: 'stands with support', base: 290, range: 25 },
-    { key: 'babble', label: 'babbles mama/dada', base: 320, range: 40 },
-    { key: 'steps', label: 'takes first steps', base: 370, range: 40 },
-    { key: 'words', label: 'first real words', base: 380, range: 45 },
-    { key: 'run', label: 'runs', base: 550, range: 60 },
-    { key: 'phrases', label: 'two word phrases', base: 640, range: 70 },
-    { key: 'potty', label: 'potty trained', base: 660, range: 90 },
-];
-
-export function growthStageOf(ageDays) {
-    if (ageDays === null || ageDays === undefined) return GROWTH_STAGES[0];
-    for (const st of GROWTH_STAGES) {
-        if (ageDays < st.maxDays) return st;
-    }
-    return GROWTH_STAGES[GROWTH_STAGES.length - 1];
-}
-
 export const LACTATION = {
     producing: 'is producing milk: engorgement, leaking, night feeds, milk letdown when the baby cries',
     drying: 'milk supply is tapering off: less fullness, fewer feeds',
